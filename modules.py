@@ -111,7 +111,7 @@ class Emotion_DataModule():
         elif self.data_mode == 1:
             return DataLoader(CustomDataSet(eeg, label), self.batch_size, shuffle=shuffle)
         elif self.data_mode == 2:
-            return DataLoader(CustomDataSet(eeg, label), self.batch_size, shuffle=shuffle)
+            return DataLoader(CustomDataSet(fnirs, label), self.batch_size, shuffle=shuffle)
     
     def window_slicing(self, arr, start_point, window_len):
         total_len = arr.shape[-1]

@@ -19,9 +19,11 @@ def train_bin_cls(model:nn.Module,
                 learning_rate:str, 
                 early_stop:EarlyStopping = None,
                 min_epoch:int = 0,
+                exlr_on:bool = False,
                 **kwargs):
     criterion = nn.BCELoss()
     optimizer = OPT_DICT[optimizer_name](model.parameters(), lr=float(learning_rate))
+    exlr = opt.lr_scheduler.ExponentialLR(optimizer, gamma=0.99)
     tr_acc, tr_loss = [], []
     vl_acc, vl_loss = [], []
     tr_correct, tr_total = 0, 0
@@ -45,6 +47,7 @@ def train_bin_cls(model:nn.Module,
             tr_total += y.size(0)
             tr_correct += (predicted == y).sum().item()
             trn_loss += loss.item()
+        if exlr_on: exlr.step()
         tr_loss.append(round(trn_loss/len(train_loader), 4))
         tr_acc.append(round(100 * tr_correct / tr_total, 4))
 

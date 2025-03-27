@@ -204,6 +204,7 @@ class SyncNet3(nn.Module):
         elif data_mode == 2:
             self.eeg_emb = fNIRS_Temporal_Encoder(eeg_shape[0], round(eeg_shape[-1]/num_segments), 5, 16, 32, embed_dim, actv, num_groups)
         self.pos_encoder = PositionalEncoding(embed_dim)
+        self.fusion_conv = nn.Conv1d(embed_dim, embed_dim, kernel_size=1)
         
         if use_lstm:
             self.classifier = LSTMClassifier(embed_dim, num_segments, num_classes)
@@ -218,6 +219,7 @@ class SyncNet3(nn.Module):
         eeg = self.eeg_emb(eeg) # (batch, num_segments, embed_dim)
         # print(eeg.shape)
 
+        eeg = self.fusion_conv(eeg.permute(0, 2, 1)).permute(0, 2, 1)  # (batch, total_tokens, embed_dim)
         eeg = self.pos_encoder(eeg)  # (batch, total_tokens, embed_dim)
         # print(eeg.shape)
         return self.classifier(eeg)  # (batch, num_classes)

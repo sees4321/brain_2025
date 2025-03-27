@@ -5,7 +5,7 @@ import torch.nn.utils.prune as prune
 
 from trainer import *
 from models.syncnet import SyncNet
-from models.syncnet2 import SyncNet2
+from models.syncnet2 import SyncNet2, SyncNet3
 from models.eegnet import EEGNet
 from models.shallowfbcspnet import ShallowFBCSPNet
 from models.deep4net import Deep4Net
@@ -20,24 +20,25 @@ from torchmetrics.classification import BinaryConfusionMatrix
 
 ManualSeed(2222)
 
-def leave_one_out_cross_validation(label_type:int=0):
+def leave_one_out_cross_validation(label_type:int=0, data_mode:int=0):
     learning_rate = 5e-4
-    num_batch = 32
-    num_epochs = 51
+    num_batch = 16
+    num_epochs = 100
     min_epoch = 50
     time = datetime.datetime.now().strftime('%m%d_%H%M')
     # path = 'D:/One_한양대학교/private object minsu/coding/data/brain_2025'
     path = 'D:/KMS/data/brain_2025'
 
     emotion_dataset = Emotion_DataModule(path,
-                                        label_type=label_type,
-                                        ica=False,
-                                        start_point=60,
-                                        window_len=60,
-                                        num_val=3,
-                                        batch_size=num_batch,
-                                        transform_eeg=None,
-                                        transform_fnirs=None)
+                                         data_mode=data_mode,
+                                         label_type=label_type,
+                                         ica=False,
+                                         start_point=60,
+                                         window_len=60,
+                                         num_val=3,
+                                         batch_size=num_batch,
+                                         transform_eeg=None,
+                                         transform_fnirs=None)
     config = Config(
         eeg_channels=emotion_dataset.eeg.shape[2],
         eeg_num_samples=emotion_dataset.eeg.shape[-1],
@@ -74,8 +75,19 @@ def leave_one_out_cross_validation(label_type:int=0):
         # model = Bimodal_model(EEGNet2(), EEGNet_fNIRS(pool_mode="mean"), 1).to(DEVICE)
         # model = Bimodal_attn_model(HiRENet3(emb_dim=dim), EEGNet_fNIRS3(emb_dim=dim), 1).to(DEVICE)
 
-        model = SyncNet2(emotion_dataset.data_shape_eeg, 
-                        emotion_dataset.data_shape_fnirs, 
+        # model = SyncNet2(emotion_dataset.data_shape_eeg, 
+        #                 emotion_dataset.data_shape_fnirs, 
+        #                 num_segments=12,
+        #                 embed_dim=256,
+        #                 num_heads=4,
+        #                 num_layers=2,
+        #                 use_lstm=False,
+        #                 num_groups=4,
+        #                 actv_mode="elu",
+        #                 pool_mode="mean", 
+        #                 num_classes=1).to(DEVICE)
+        model = SyncNet3(emotion_dataset.data_shape_eeg if data_mode==1 else emotion_dataset.data_shape_fnirs, 
+                         data_mode=data_mode,
                         num_segments=12,
                         embed_dim=256,
                         num_heads=4,
@@ -87,7 +99,7 @@ def leave_one_out_cross_validation(label_type:int=0):
                         num_classes=1).to(DEVICE)
 
         es = EarlyStopping(model, patience=10, mode='min')
-        train_acc, train_loss, val_acc, val_loss = train_bin_cls2(model, 
+        train_acc, train_loss, val_acc, val_loss = train_bin_cls(model, 
                                                                 train_loader=train_loader, 
                                                                 val_loader=val_loader,
                                                                 num_epoch=num_epochs, 
@@ -103,7 +115,7 @@ def leave_one_out_cross_validation(label_type:int=0):
 
         model.load_state_dict(torch.load('best_model.pth'))
         # prune.l1_unstructured(model.classifer[0], name='weight', amount=0.3)
-        test_acc, preds, targets = test_bin_cls2(model, tst_loader=test_loader)
+        test_acc, preds, targets = test_bin_cls(model, tst_loader=test_loader)
         ts_acc.append(test_acc)
         bcm = BinaryConfusionMatrix()
         cf = bcm(torch.from_numpy(preds), torch.from_numpy(targets))
@@ -121,8 +133,10 @@ def leave_one_out_cross_validation(label_type:int=0):
 
 #type chan n_chan
 #a0 v1 / 0full, 123 / 8 3 3 2
-leave_one_out_cross_validation(0)
-leave_one_out_cross_validation(1)
+leave_one_out_cross_validation(0,1)
+leave_one_out_cross_validation(1,1)
+leave_one_out_cross_validation(0,2)
+leave_one_out_cross_validation(1,2)
 
 
 # for typ in range(2):

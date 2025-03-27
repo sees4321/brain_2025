@@ -178,3 +178,46 @@ class SyncNet2(nn.Module):
         fused_tokens = self.pos_encoder(fused_tokens)  # (batch, total_tokens, embed_dim)
         # print(eeg.shape)
         return self.classifier(fused_tokens)  # (batch, num_classes)
+    
+
+class SyncNet3(nn.Module):
+    def __init__(self, 
+                 eeg_shape, 
+                 data_mode=1,
+                 num_segments=12,
+                 embed_dim=128, 
+                 num_heads=4, 
+                 num_layers=2, 
+                 use_lstm = False,
+                 num_groups = 4,
+                 actv_mode = "elu", 
+                 pool_mode = "mean", 
+                 num_classes=1):
+        super(SyncNet3, self).__init__()
+
+        self.num_segments = num_segments
+        actv = dict(elu=nn.ELU, gelu=nn.GELU, relu=nn.ReLU)[actv_mode]
+        pool = dict(max=nn.MaxPool3d, mean=nn.AvgPool3d)[pool_mode]
+        
+        if data_mode==1:
+            self.eeg_emb = EEG_Temporal_Encoder(eeg_shape[0], round(eeg_shape[-1]/num_segments), 13, 16, 32, embed_dim, actv, pool, num_groups)
+        elif data_mode == 2:
+            self.eeg_emb = fNIRS_Temporal_Encoder(eeg_shape[0], round(eeg_shape[-1]/num_segments), 5, 16, 32, embed_dim, actv, num_groups)
+        self.pos_encoder = PositionalEncoding(embed_dim)
+        
+        if use_lstm:
+            self.classifier = LSTMClassifier(embed_dim, num_segments, num_classes)
+        else:
+            self.classifier = TransformerClassifier(embed_dim, num_segments, num_heads, num_layers, num_classes)
+    
+    def forward(self, eeg):
+        # segmentation
+        eeg = segment_data(eeg, self.num_segments) # (batch, num_segments, channels, segment_length) 
+        # print(eeg.shape)
+
+        eeg = self.eeg_emb(eeg) # (batch, num_segments, embed_dim)
+        # print(eeg.shape)
+
+        eeg = self.pos_encoder(eeg)  # (batch, total_tokens, embed_dim)
+        # print(eeg.shape)
+        return self.classifier(eeg)  # (batch, num_classes)

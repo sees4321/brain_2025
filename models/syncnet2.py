@@ -1,11 +1,12 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from math import ceil
 
 def segment_data(data:torch.Tensor, num_seg = 12):
     # data shape: (B, channels, time_samples), 여기서 time_samples = 7680
     end = data.size(-1)
-    segment_length = round(end/num_seg)
+    segment_length = ceil(end/num_seg)
     if end % segment_length != 0:
         end = (end // segment_length + 1) * segment_length
     data = F.pad(data, (0,(end-data.size(-1))), mode='replicate')
@@ -154,7 +155,7 @@ class SyncNet2(nn.Module):
         pool = dict(max=nn.MaxPool3d, mean=nn.AvgPool3d)[pool_mode]
 
         self.eeg_emb = EEG_Temporal_Encoder(eeg_shape[0], round(eeg_shape[-1]/num_segments), 13, 16, 32, embed_dim, actv, pool, num_groups)
-        self.fnirs_emb = fNIRS_Temporal_Encoder(fnirs_shape[0], round(fnirs_shape[-1]/num_segments), 5, 16, 32, embed_dim, actv, num_groups)
+        self.fnirs_emb = fNIRS_Temporal_Encoder(fnirs_shape[0], ceil(fnirs_shape[-1]/num_segments), 5, 16, 32, embed_dim, actv, num_groups)
         self.pos_encoder = PositionalEncoding(embed_dim)
         self.fusion_conv = nn.Conv1d(embed_dim*2, embed_dim, kernel_size=1)
         if use_lstm:

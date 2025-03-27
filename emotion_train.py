@@ -22,16 +22,16 @@ ManualSeed(2222)
 
 def leave_one_out_cross_validation(label_type:int=0):
     learning_rate = 5e-4
-    num_batch = 16
+    num_batch = 32
     num_epochs = 51
     min_epoch = 50
     time = datetime.datetime.now().strftime('%m%d_%H%M')
 
-    emotion_dataset = Emotion_DataModule('D:/One_한양대학교/private object minsu/coding/data/brain_2025',
+    emotion_dataset = Emotion_DataModule('D:/KMS/data/brain_2025',
                                         label_type=label_type,
                                         ica=False,
                                         start_point=60,
-                                        window_len=30,
+                                        window_len=60,
                                         num_val=3,
                                         batch_size=num_batch,
                                         transform_eeg=None,
@@ -74,7 +74,7 @@ def leave_one_out_cross_validation(label_type:int=0):
 
         model = SyncNet2(emotion_dataset.data_shape_eeg, 
                         emotion_dataset.data_shape_fnirs, 
-                        num_segments=20,
+                        num_segments=12,
                         embed_dim=256,
                         num_heads=4,
                         num_layers=2,

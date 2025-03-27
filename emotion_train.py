@@ -26,8 +26,9 @@ def leave_one_out_cross_validation(label_type:int=0):
     num_epochs = 51
     min_epoch = 50
     time = datetime.datetime.now().strftime('%m%d_%H%M')
+    path = 'D:/One_한양대학교/private object minsu/coding/data/brain_2025'
 
-    emotion_dataset = Emotion_DataModule('D:/One_한양대학교/private object minsu/coding/data/brain_2025',
+    emotion_dataset = Emotion_DataModule(path=path,
                                         label_type=label_type,
                                         ica=False,
                                         start_point=60,

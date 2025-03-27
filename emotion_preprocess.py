@@ -1,7 +1,9 @@
-import pandas as pd
 from scipy import signal
-import numpy as np
+from scipy.io import loadmat
+
 import mne
+import numpy as np
+import pandas as pd
 import os
 
 
@@ -77,8 +79,8 @@ def labeling(path, sub):
 
     return label_[1:]
 
-def preprocess_and_save(path, applyICA):
-    sub_list = os.listdir(path)
+def preprocess_and_save(path, applyICA, path2):
+    sub_list = os.listdir(f'{path}')
     eeg = []
     eeg_washoff = []
     eeg_resting = []
@@ -111,10 +113,22 @@ def preprocess_and_save(path, applyICA):
     eeg_washoff = np.stack(eeg_washoff, 0)
     label = np.stack(label, 0)
 
+    datf = loadmat(f'{path2}/fNIRS_epoch.mat')
+    fnirs_resting = []
+    fnirs_ = []
+    for i in range(9):
+        if i < 2:
+            fnirs_resting.append(datf['epoch'][0][0][i][0][0].T)
+        else:
+            fnirs_.append(datf['epoch'][0][0][i][0][0].T)
+    fnirs_resting = np.stack(fnirs_resting,0)
+    fnirs_ = np.stack(fnirs_,0)
+
     name = 'emotion_data_ica.npz' if applyICA else 'emotion_data.npz'
-    np.savez_compressed(name, eeg=eeg, eeg_resting=eeg_resting, eeg_washoff=eeg_washoff, label=label)
+    np.savez_compressed(name, eeg=eeg, eeg_resting=eeg_resting, eeg_washoff=eeg_washoff, fnirs=fnirs_, fnirs_resting= fnirs_resting, label=label)
 
 if __name__ == '__main__':
-    path = 'D:/One_한양대학교/private object minsu/coding/data/day1)emotion+mist'
-    preprocess_and_save(path, True)
-    preprocess_and_save(path, False)
+    path = 'D:/One_한양대학교/private object minsu/coding/data/brain_2025/day1)emotion+mist'
+    path2 = 'D:/One_한양대학교/private object minsu/coding/data/brain_2025'
+    preprocess_and_save(path, True, path2)
+    preprocess_and_save(path, False, path2)

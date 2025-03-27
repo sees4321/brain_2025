@@ -75,19 +75,8 @@ def leave_one_out_cross_validation(label_type:int=0, data_mode:int=0):
         # model = Bimodal_model(EEGNet2(), EEGNet_fNIRS(pool_mode="mean"), 1).to(DEVICE)
         # model = Bimodal_attn_model(HiRENet3(emb_dim=dim), EEGNet_fNIRS3(emb_dim=dim), 1).to(DEVICE)
 
-        # model = SyncNet2(emotion_dataset.data_shape_eeg, 
-        #                 emotion_dataset.data_shape_fnirs, 
-        #                 num_segments=12,
-        #                 embed_dim=256,
-        #                 num_heads=4,
-        #                 num_layers=2,
-        #                 use_lstm=False,
-        #                 num_groups=4,
-        #                 actv_mode="elu",
-        #                 pool_mode="mean", 
-        #                 num_classes=1).to(DEVICE)
-        model = SyncNet3(emotion_dataset.data_shape_eeg if data_mode==1 else emotion_dataset.data_shape_fnirs, 
-                         data_mode=data_mode,
+        model = SyncNet2(emotion_dataset.data_shape_eeg, 
+                        emotion_dataset.data_shape_fnirs, 
                         num_segments=12,
                         embed_dim=256,
                         num_heads=4,
@@ -97,6 +86,17 @@ def leave_one_out_cross_validation(label_type:int=0, data_mode:int=0):
                         actv_mode="elu",
                         pool_mode="mean", 
                         num_classes=1).to(DEVICE)
+        # model = SyncNet3(emotion_dataset.data_shape_eeg if data_mode==1 else emotion_dataset.data_shape_fnirs, 
+        #                  data_mode=data_mode,
+        #                 num_segments=12,
+        #                 embed_dim=256,
+        #                 num_heads=4,
+        #                 num_layers=2,
+        #                 use_lstm=False,
+        #                 num_groups=4,
+        #                 actv_mode="elu",
+        #                 pool_mode="mean", 
+        #                 num_classes=1).to(DEVICE)
 
         es = EarlyStopping(model, patience=10, mode='min')
         train_acc, train_loss, val_acc, val_loss = train_bin_cls(model, 
@@ -133,10 +133,12 @@ def leave_one_out_cross_validation(label_type:int=0, data_mode:int=0):
 
 #type chan n_chan
 #a0 v1 / 0full, 123 / 8 3 3 2
-leave_one_out_cross_validation(0,1)
-leave_one_out_cross_validation(1,1)
-leave_one_out_cross_validation(0,2)
-leave_one_out_cross_validation(1,2)
+leave_one_out_cross_validation(0,0)
+leave_one_out_cross_validation(1,0)
+# leave_one_out_cross_validation(0,1)
+# leave_one_out_cross_validation(1,1)
+# leave_one_out_cross_validation(0,2)
+# leave_one_out_cross_validation(1,2)
 
 
 # for typ in range(2):

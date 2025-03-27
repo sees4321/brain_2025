@@ -116,14 +116,18 @@ def preprocess_and_save(path, applyICA, path2):
     datf = loadmat(f'{path2}/fNIRS_epoch.mat')
     fnirs_resting = []
     fnirs_ = []
-    for i in range(9):
+    for i in range(10):
+        temp = []
+        for j in range(39):
+            if j+1 in [4, 11, 31]: continue
+            temp.append(datf['epoch'][0][0][i][0][j].T)
         if i < 2:
-            fnirs_resting.append(datf['epoch'][0][0][i][0][0].T)
+            fnirs_resting.append(np.stack(temp, axis=0))
         else:
-            fnirs_.append(datf['epoch'][0][0][i][0][0].T)
-    fnirs_resting = np.stack(fnirs_resting,0)
-    fnirs_ = np.stack(fnirs_,0)
-
+            fnirs_.append(np.stack(temp, axis=0))
+    fnirs_resting = np.stack(fnirs_resting,1)*1e+3
+    fnirs_ = np.stack(fnirs_, 1)*1e+3
+    
     name = 'emotion_data_ica.npz' if applyICA else 'emotion_data.npz'
     np.savez_compressed(name, eeg=eeg, eeg_resting=eeg_resting, eeg_washoff=eeg_washoff, fnirs=fnirs_, fnirs_resting= fnirs_resting, label=label)
 

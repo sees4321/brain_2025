@@ -13,7 +13,7 @@ def preprocessing_ICA(edf, event, fs_origin=2048, fs=128):
     edf.resample(128)
     event[:,0] = event[:,0] // (fs_origin // fs)
     edf.notch_filter(60)
-    edf.filter(1,50, method='iir', iir_params=dict(order=2, ftype='butter'))
+    edf.filter(1,50, method='iir', iir_params=dict(order=3, ftype='butter'))
 
     ica = mne.preprocessing.ICA(n_components=7, random_state=2222)
     ica.fit(edf)
@@ -38,7 +38,7 @@ def preprocessing_scipy(edf, event, fs_origin=2048, fs=128):
     signal_filtered = signal.filtfilt(notch_b, notch_a, signal_downsampled)
 
     # band-pass filtering
-    butter_b, butter_a = signal.butter(2, [1, 50], 'bandpass', fs=fs)
+    butter_b, butter_a = signal.butter(3, [1, 50], 'bandpass', fs=fs)
     signal_filtered = signal.filtfilt(butter_b, butter_a, signal_filtered)
 
     return signal_filtered, event
@@ -113,23 +113,26 @@ def preprocess_and_save(path, applyICA, path2):
     eeg_washoff = np.stack(eeg_washoff, 0)
     label = np.stack(label, 0)
 
-    datf = loadmat(f'{path2}/fNIRS_epoch.mat')
-    fnirs_resting = []
-    fnirs_ = []
-    for i in range(10):
-        temp = []
-        for j in range(39):
-            if j+1 in [4, 11, 31]: continue
-            temp.append(datf['epoch'][0][0][i][0][j].T)
-        if i < 2:
-            fnirs_resting.append(np.stack(temp, axis=0))
-        else:
-            fnirs_.append(np.stack(temp, axis=0))
-    fnirs_resting = np.stack(fnirs_resting,1)*1e+3
-    fnirs_ = np.stack(fnirs_, 1)*1e+3
+    # datf = loadmat(f'{path2}/fNIRS_epoch.mat')
+    # fnirs_resting = []
+    # fnirs_ = []
+    # for i in range(10):
+    #     temp = []
+    #     for j in range(39):
+    #         if j+1 in [4, 11, 31]: continue
+    #         temp.append(datf['epoch'][0][0][i][0][j].T)
+    #     if i < 2:
+    #         fnirs_resting.append(np.stack(temp, axis=0))
+    #     else:
+    #         fnirs_.append(np.stack(temp, axis=0))
+    # fnirs_resting = np.stack(fnirs_resting,1)*1e+3
+    # fnirs_ = np.stack(fnirs_, 1)*1e+3
+
+    datf = np.load(f'{path2}/emo_fnirs_1.npy')
     
     name = 'emotion_data_ica.npz' if applyICA else 'emotion_data.npz'
-    np.savez_compressed(name, eeg=eeg, eeg_resting=eeg_resting, eeg_washoff=eeg_washoff, fnirs=fnirs_, fnirs_resting= fnirs_resting, label=label)
+    # np.savez_compressed(name, eeg=eeg, eeg_resting=eeg_resting, eeg_washoff=eeg_washoff, fnirs=fnirs_, fnirs_resting= fnirs_resting, label=label)
+    np.savez_compressed(name, eeg=eeg, eeg_resting=eeg_resting, eeg_washoff=eeg_washoff, fnirs=datf, label=label)
 
 if __name__ == '__main__':
     path = 'D:/One_한양대학교/private object minsu/coding/data/brain_2025/day1)emotion+mist'

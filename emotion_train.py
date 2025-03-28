@@ -18,7 +18,7 @@ from modules import Emotion_DataModule
 from utils import *
 from torchmetrics.classification import BinaryConfusionMatrix
 
-ManualSeed(2222)
+ManualSeed(0)
 
 def leave_one_out_cross_validation(label_type:int=0, data_mode:int=0):
     learning_rate = 5e-4
@@ -32,21 +32,21 @@ def leave_one_out_cross_validation(label_type:int=0, data_mode:int=0):
     emotion_dataset = Emotion_DataModule(path,
                                          data_mode=data_mode,
                                          label_type=label_type,
-                                         ica=False,
+                                         ica=True,
                                          start_point=60,
                                          window_len=60,
                                          num_val=0,
                                          batch_size=num_batch,
                                          transform_eeg=None,
                                          transform_fnirs=None)
-    config = Config(
-        eeg_channels=emotion_dataset.eeg.shape[2],
-        eeg_num_samples=emotion_dataset.eeg.shape[-1],
-        fnirs_channels=emotion_dataset.fnirs.shape[2],
-        fnirs_num_samples=emotion_dataset.fnirs.shape[-1],
-        eeg_temporal_length=64,
-        num_classes=1,
-    )
+    # config = Config(
+    #     eeg_channels=emotion_dataset.eeg.shape[2],
+    #     eeg_num_samples=emotion_dataset.eeg.shape[-1],
+    #     fnirs_channels=emotion_dataset.fnirs.shape[2],
+    #     fnirs_num_samples=emotion_dataset.fnirs.shape[-1],
+    #     eeg_temporal_length=64,
+    #     num_classes=1,
+    # )
 
     tr_acc = []
     tr_loss = []
@@ -67,7 +67,7 @@ def leave_one_out_cross_validation(label_type:int=0, data_mode:int=0):
         # model = BimodalNet(config).to(DEVICE)
         # model = EEGNet_fNIRS(cls = True).to(DEVICE)
         # model = FNIRSSubNet(emb_dim=1, cls = True).to(DEVICE)
-        dim = 64
+        # dim = 64
         # model = Bimodal_model(HiRENet2(drop_prob=0.25), EEGNet_fNIRS(pool_mode="mean"), 1).to(DEVICE)
         # model = Bimodal_model(Deep4Net([emotion_dataset.eeg.shape[-2], emotion_dataset.eeg.shape[-1]],cls=False), EEGNet_fNIRS(pool_mode="mean"), 1).to(DEVICE)
         # model = Bimodal_model(CNNLSTM(emotion_dataset.data_shape_eeg,cls=False), 
@@ -75,39 +75,45 @@ def leave_one_out_cross_validation(label_type:int=0, data_mode:int=0):
         # model = Bimodal_model(EEGNet2(), EEGNet_fNIRS(pool_mode="mean"), 1).to(DEVICE)
         # model = Bimodal_attn_model(HiRENet3(emb_dim=dim), EEGNet_fNIRS3(emb_dim=dim), 1).to(DEVICE)
 
-        model = SyncNet2(emotion_dataset.data_shape_eeg, 
-                        emotion_dataset.data_shape_fnirs, 
-                        num_segments=12,
-                        embed_dim=256,
-                        num_heads=4,
-                        num_layers=2,
-                        use_lstm=False,
-                        num_groups=4,
-                        actv_mode="elu",
-                        pool_mode="mean", 
-                        num_classes=1).to(DEVICE)
-        # model = SyncNet3(emotion_dataset.data_shape_eeg if data_mode==1 else emotion_dataset.data_shape_fnirs, 
-        #                  data_mode=data_mode,
-        #                 num_segments=12,
-        #                 embed_dim=256,
-        #                 num_heads=4,
-        #                 num_layers=2,
-        #                 use_lstm=False,
-        #                 num_groups=4,
-        #                 actv_mode="elu",
-        #                 pool_mode="mean", 
-        #                 num_classes=1).to(DEVICE)
+        if data_mode == 0:
+            model = SyncNet2(emotion_dataset.data_shape_eeg, 
+                            emotion_dataset.data_shape_fnirs, 
+                            num_segments=12,
+                            embed_dim=256,
+                            num_heads=4,
+                            num_layers=2,
+                            use_lstm=False,
+                            num_groups=4,
+                            actv_mode="elu",
+                            pool_mode="mean", 
+                            num_classes=1).to(DEVICE)
+            trainer = train_bin_cls2
+            tester = test_bin_cls2
+        else:
+            model = SyncNet3(emotion_dataset.data_shape_eeg if data_mode==1 else emotion_dataset.data_shape_fnirs, 
+                            data_mode=data_mode,
+                            num_segments=12,
+                            embed_dim=256,
+                            num_heads=4,
+                            num_layers=2,
+                            use_lstm=False,
+                            num_groups=4,
+                            actv_mode="elu",
+                            pool_mode="mean", 
+                            num_classes=1).to(DEVICE)
+            trainer = train_bin_cls
+            tester = test_bin_cls
 
         # es = EarlyStopping(model, patience=10, mode='min')
-        train_acc, train_loss, val_acc, val_loss = train_bin_cls2(model, 
-                                                                train_loader=train_loader, 
-                                                                val_loader=val_loader,
-                                                                num_epoch=num_epochs, 
-                                                                optimizer_name='Adam',
-                                                                learning_rate=str(learning_rate),
-                                                                early_stop=None,
-                                                                min_epoch=min_epoch,
-                                                                exlr_on=False)
+        train_acc, train_loss, val_acc, val_loss = trainer(model, 
+                                                            train_loader=train_loader, 
+                                                            val_loader=val_loader,
+                                                            num_epoch=num_epochs, 
+                                                            optimizer_name='Adam',
+                                                            learning_rate=str(learning_rate),
+                                                            early_stop=None,
+                                                            min_epoch=min_epoch,
+                                                            exlr_on=False)
         tr_acc.append(train_acc)
         tr_loss.append(train_loss)
         vl_acc.append(val_acc)
@@ -115,15 +121,15 @@ def leave_one_out_cross_validation(label_type:int=0, data_mode:int=0):
 
         model.load_state_dict(torch.load('best_model.pth'))
         # prune.l1_unstructured(model.classifer[0], name='weight', amount=0.3)
-        test_acc, preds, targets = test_bin_cls2(model, tst_loader=test_loader)
+        test_acc, preds, targets = tester(model, tst_loader=test_loader)
         ts_acc.append(test_acc)
+
         bcm = BinaryConfusionMatrix()
         cf = bcm(torch.from_numpy(preds), torch.from_numpy(targets))
         # cf = bcm(torch.from_numpy(np.argmax(preds,1)), torch.from_numpy(targets))
         ts_sen.append(cf[1,1]/(cf[1,1]+cf[1,0]))
         ts_spc.append(cf[0,0]/(cf[0,0]+cf[0,1]))
-        # ts_acc.append(val_acc[-1])
-        # ts_acc[subj], preds[subj], targets[subj] = DoTest_bin(model, tst_loader=test_loader)
+
         print(f'[{subj:0>2}] acc: {test_acc} %, training acc: {train_acc[-1]:.2f} %, training loss: {train_loss[-1]:.3f}')
         # print(f'[{subj:0>2}] acc: {test_acc} %, training acc: {train_acc[es.epoch]:.2f} %, training loss: {train_loss[es.epoch]:.3f}, val acc: {val_acc[es.epoch]:.2f} %, val loss: {val_loss[es.epoch]:.3f}, es: {es.epoch}')
 
@@ -132,9 +138,7 @@ def leave_one_out_cross_validation(label_type:int=0, data_mode:int=0):
     # print('end')
 
 
-leave_one_out_cross_validation(0,0)
-leave_one_out_cross_validation(1,0)
-# leave_one_out_cross_validation(0,1)
-# leave_one_out_cross_validation(1,1)
-# leave_one_out_cross_validation(0,2)
-# leave_one_out_cross_validation(1,2)
+if __name__ == "__main__":
+    for i in range(3):
+        leave_one_out_cross_validation(0,i)
+        leave_one_out_cross_validation(1,i)

@@ -7,7 +7,7 @@ from utils import *
 
 class Emotion_DataModule():
     r'''
-    Create nback dataset for leave-one-subject-out cross-validation
+    Create emotion dataset for leave-one-subject-out cross-validation
 
     Args:
         path (str): path for the original data.
@@ -135,15 +135,13 @@ class Emotion_DataModule():
         return subj[self.num_val:], subj[:self.num_val]
 
 
-class Mist_DataModule():
+class MIST_DataModule():
     r'''
-    Create nback dataset for leave-one-subject-out cross-validation
+    Create MIST dataset for leave-one-subject-out cross-validation
 
     Args:
         path (str): path for the original data.
         data_mode (int): 0 - eeg + fnirs, 1 - only eeg, 2 - only fnirs
-        label_type (int): 0 - arousal classification, 1 - valence classification
-        ica (bool): load data_ica (default: True)
         start_point (int): start_point of the segmentation in seconds. (default: 60)
         window_len (int): window length in seconds for segmentation. (default: 60)
         num_val (int): number of subjects for validation. (default: 3)
@@ -153,7 +151,6 @@ class Mist_DataModule():
     def __init__(self, 
                  path:str, # D:/One_한양대학교/private object minsu/coding/data/brain_2025
                  data_mode:int = 0,
-                 label_type:int = 0,
                  start_point:int = 60,
                  window_len:int = 60,
                  num_val:int = 3,
@@ -169,28 +166,15 @@ class Mist_DataModule():
         self.test_idx = 0
         
         # load data
-        data = np.load(f'{path}/emotion_data.npz')
+        data = np.load(f'{path}/mist_data.npz')
         
-        self.eeg = data['eeg'] # (36, 2, 7, 15360)
+        self.eeg = data['eeg'] # (36, 2, 7, 7680)
         self.fnirs = data['fnirs'] # (36, 2, 26, 367) 
-        self.label = data['label'] # (36, 8)
+        self.label = data['label'] # (36, 2)
         self.subjects = [i for i in range(self.eeg.shape[0])]
-
-        # labeling
-        if label_type == 0: # arousal
-            self.label[self.label == 1.0] = 1
-            self.label[self.label == 2.0] = 0
-            self.label[self.label == 3.0] = 1
-            self.label[self.label == 4.0] = 0
-        else: # valence
-            self.label[self.label == 1.0] = 1
-            self.label[self.label == 2.0] = 1
-            self.label[self.label == 3.0] = 0
-            self.label[self.label == 4.0] = 0
-
         # segmentation
         self.eeg, n_windows = self.window_slicing(self.eeg, start_point, window_len)
-        self.fnirs, n_windows = self.window_slicing(self.fnirs, start_point-60, window_len)
+        self.fnirs, n_windows = self.window_slicing(self.fnirs, start_point, window_len)
         self.label = np.repeat(self.label, n_windows, 1)
         self.data_shape_eeg = list(self.eeg.shape[-2:])
         self.data_shape_fnirs = list(self.fnirs.shape[-2:])
@@ -242,8 +226,8 @@ class Mist_DataModule():
     def window_slicing(self, arr, start_point, window_len):
         total_len = arr.shape[-1]
         
-        start_idx = int(total_len * start_point / 120)
-        window_length = int(total_len * window_len / 120)
+        start_idx = int(total_len * start_point / 60)
+        window_length = int(total_len * window_len / 60)
         n_windows = (total_len - start_idx) // window_length
         
         out = np.stack([arr[:,:,:,start_idx + i * window_length : start_idx + (i + 1) * window_length] for i in range(n_windows)], 1)

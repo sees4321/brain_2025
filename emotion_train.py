@@ -23,8 +23,8 @@ ManualSeed(2222)
 def leave_one_out_cross_validation(label_type:int=0, data_mode:int=0):
     learning_rate = 5e-4
     num_batch = 16
-    num_epochs = 100
-    min_epoch = 30
+    num_epochs = 50
+    min_epoch = 50
     time = datetime.datetime.now().strftime('%m%d_%H%M')
     # path = 'D:/One_한양대학교/private object minsu/coding/data/brain_2025'
     path = 'D:/KMS/data/brain_2025'
@@ -35,7 +35,7 @@ def leave_one_out_cross_validation(label_type:int=0, data_mode:int=0):
                                          ica=False,
                                          start_point=60,
                                          window_len=60,
-                                         num_val=3,
+                                         num_val=0,
                                          batch_size=num_batch,
                                          transform_eeg=None,
                                          transform_fnirs=None)
@@ -98,14 +98,14 @@ def leave_one_out_cross_validation(label_type:int=0, data_mode:int=0):
         #                 pool_mode="mean", 
         #                 num_classes=1).to(DEVICE)
 
-        es = EarlyStopping(model, patience=10, mode='min')
+        # es = EarlyStopping(model, patience=10, mode='min')
         train_acc, train_loss, val_acc, val_loss = train_bin_cls2(model, 
                                                                 train_loader=train_loader, 
                                                                 val_loader=val_loader,
                                                                 num_epoch=num_epochs, 
                                                                 optimizer_name='Adam',
                                                                 learning_rate=str(learning_rate),
-                                                                early_stop=es,
+                                                                early_stop=None,
                                                                 min_epoch=min_epoch,
                                                                 exlr_on=False)
         tr_acc.append(train_acc)
@@ -124,8 +124,8 @@ def leave_one_out_cross_validation(label_type:int=0, data_mode:int=0):
         ts_spc.append(cf[0,0]/(cf[0,0]+cf[0,1]))
         # ts_acc.append(val_acc[-1])
         # ts_acc[subj], preds[subj], targets[subj] = DoTest_bin(model, tst_loader=test_loader)
-        # print(f'[{subj:0>2}] acc: {test_acc} %, training acc: {train_acc[-1]:.2f} %, training loss: {train_loss[-1]:.3f}')
-        print(f'[{subj:0>2}] acc: {test_acc} %, training acc: {train_acc[es.epoch]:.2f} %, training loss: {train_loss[es.epoch]:.3f}, val acc: {val_acc[es.epoch]:.2f} %, val loss: {val_loss[es.epoch]:.3f}, es: {es.epoch}')
+        print(f'[{subj:0>2}] acc: {test_acc} %, training acc: {train_acc[-1]:.2f} %, training loss: {train_loss[-1]:.3f}')
+        # print(f'[{subj:0>2}] acc: {test_acc} %, training acc: {train_acc[es.epoch]:.2f} %, training loss: {train_loss[es.epoch]:.3f}, val acc: {val_acc[es.epoch]:.2f} %, val loss: {val_loss[es.epoch]:.3f}, es: {es.epoch}')
 
     print(f'avg Acc: {np.mean(ts_acc):.2f} %, std: {np.std(ts_acc):.2f}, sen: {np.mean(ts_sen)*100:.2f}, spc: {np.mean(ts_spc)*100:.2f}')
     # np.save('ts_acc.npy',ts_acc)

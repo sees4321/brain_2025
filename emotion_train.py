@@ -24,7 +24,7 @@ def leave_one_out_cross_validation(label_type:int=0, data_mode:int=0):
     learning_rate = 5e-4
     num_batch = 16
     num_epochs = 100
-    min_epoch = 50
+    min_epoch = 30
     time = datetime.datetime.now().strftime('%m%d_%H%M')
     # path = 'D:/One_한양대학교/private object minsu/coding/data/brain_2025'
     path = 'D:/KMS/data/brain_2025'
@@ -99,7 +99,7 @@ def leave_one_out_cross_validation(label_type:int=0, data_mode:int=0):
         #                 num_classes=1).to(DEVICE)
 
         es = EarlyStopping(model, patience=10, mode='min')
-        train_acc, train_loss, val_acc, val_loss = train_bin_cls(model, 
+        train_acc, train_loss, val_acc, val_loss = train_bin_cls2(model, 
                                                                 train_loader=train_loader, 
                                                                 val_loader=val_loader,
                                                                 num_epoch=num_epochs, 
@@ -115,7 +115,7 @@ def leave_one_out_cross_validation(label_type:int=0, data_mode:int=0):
 
         model.load_state_dict(torch.load('best_model.pth'))
         # prune.l1_unstructured(model.classifer[0], name='weight', amount=0.3)
-        test_acc, preds, targets = test_bin_cls(model, tst_loader=test_loader)
+        test_acc, preds, targets = test_bin_cls2(model, tst_loader=test_loader)
         ts_acc.append(test_acc)
         bcm = BinaryConfusionMatrix()
         cf = bcm(torch.from_numpy(preds), torch.from_numpy(targets))
@@ -131,18 +131,10 @@ def leave_one_out_cross_validation(label_type:int=0, data_mode:int=0):
     # np.save('ts_acc.npy',ts_acc)
     # print('end')
 
-#type chan n_chan
-#a0 v1 / 0full, 123 / 8 3 3 2
+
 leave_one_out_cross_validation(0,0)
 leave_one_out_cross_validation(1,0)
 # leave_one_out_cross_validation(0,1)
 # leave_one_out_cross_validation(1,1)
 # leave_one_out_cross_validation(0,2)
 # leave_one_out_cross_validation(1,2)
-
-
-# for typ in range(2):
-#     for chan in range(3):
-#         n_chan = 2 if chan == 2 else 3
-#         main(typ, chan+1, n_chan)
-# SaveResults_mat(f'eegnet_{time}',ts_acc,preds,targets,tr_acc,tr_loss,num_batch,num_epochs,learning_rate)

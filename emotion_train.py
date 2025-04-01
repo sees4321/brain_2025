@@ -5,7 +5,7 @@ import torch.nn.utils.prune as prune
 
 from trainer import *
 from models.syncnet import SyncNet
-from models.syncnet2 import SyncNet2, SyncNet3
+from models.syncnet2 import SyncNet2, SyncNet3, SyncNet4
 from models.eegnet import EEGNet
 from models.shallowfbcspnet import ShallowFBCSPNet
 from models.deep4net import Deep4Net
@@ -32,7 +32,7 @@ def leave_one_out_cross_validation(label_type:int=0, data_mode:int=0):
     emotion_dataset = Emotion_DataModule(path,
                                          data_mode=data_mode,
                                          label_type=label_type,
-                                         ica=True,
+                                         ica=False,
                                          start_point=60,
                                          window_len=60,
                                          num_val=0,
@@ -77,7 +77,7 @@ def leave_one_out_cross_validation(label_type:int=0, data_mode:int=0):
         # model = Bimodal_attn_model(HiRENet3(emb_dim=dim), EEGNet_fNIRS3(emb_dim=dim), 1).to(DEVICE)
 
         if data_mode == 0:
-            model = SyncNet2(emotion_dataset.data_shape_eeg, 
+            model = SyncNet4(emotion_dataset.data_shape_eeg, 
                             emotion_dataset.data_shape_fnirs, 
                             num_segments=12,
                             embed_dim=256,
@@ -94,7 +94,7 @@ def leave_one_out_cross_validation(label_type:int=0, data_mode:int=0):
             model = SyncNet3(emotion_dataset.data_shape_eeg if data_mode==1 else emotion_dataset.data_shape_fnirs, 
                             data_mode=data_mode,
                             num_segments=12,
-                            embed_dim=256,
+                            embed_dim=64,
                             num_heads=4,
                             num_layers=2,
                             use_lstm=False,
@@ -140,6 +140,7 @@ def leave_one_out_cross_validation(label_type:int=0, data_mode:int=0):
 
 
 if __name__ == "__main__":
-    for i in range(3):
+    for i in range(0,3):
         leave_one_out_cross_validation(0,i)
         leave_one_out_cross_validation(1,i)
+        print()

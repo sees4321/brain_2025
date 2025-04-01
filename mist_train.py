@@ -29,17 +29,25 @@ def leave_one_out_cross_validation(label_type:int=0, data_mode:int=0):
     path = 'D:/One_한양대학교/private object minsu/coding/data/brain_2025'
     # path = 'D:/KMS/data/brain_2025'
 
-    emotion_dataset = Emotion_DataModule(path,
+    # emotion_dataset = Emotion_DataModule(path,
+    #                                      data_mode=data_mode,
+    #                                      label_type=label_type,
+    #                                      ica=True,
+    #                                      start_point=60,
+    #                                      window_len=60,
+    #                                      num_val=0,
+    #                                      batch_size=num_batch,
+    #                                      transform_eeg=None,
+    #                                      transform_fnirs=None)
+    
+    emotion_dataset = MIST_DataModule(path,
                                          data_mode=data_mode,
-                                         label_type=label_type,
-                                         ica=True,
-                                         start_point=60,
+                                         start_point=0,
                                          window_len=60,
                                          num_val=0,
                                          batch_size=num_batch,
                                          transform_eeg=None,
                                          transform_fnirs=None)
-    
     # config = Config(
     #     eeg_channels=emotion_dataset.eeg.shape[2],
     #     eeg_num_samples=emotion_dataset.eeg.shape[-1],
@@ -140,6 +148,6 @@ def leave_one_out_cross_validation(label_type:int=0, data_mode:int=0):
 
 
 if __name__ == "__main__":
-    for i in range(3):
+    for i in range(1):
         leave_one_out_cross_validation(0,i)
-        leave_one_out_cross_validation(1,i)
+        # leave_one_out_cross_validation(1,i)

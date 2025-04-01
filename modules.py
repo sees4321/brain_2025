@@ -151,7 +151,7 @@ class MIST_DataModule():
     def __init__(self, 
                  path:str, # D:/One_한양대학교/private object minsu/coding/data/brain_2025
                  data_mode:int = 0,
-                 start_point:int = 60,
+                 start_point:int = 0,
                  window_len:int = 60,
                  num_val:int = 3,
                  batch_size:int = 16,

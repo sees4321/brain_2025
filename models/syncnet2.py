@@ -81,7 +81,7 @@ class EEG_Temporal_Encoder(nn.Module):
             nn.GroupNorm(groups, out_dim),
             pool(kernel_size=(1, 1, 2), stride=(1, 1, 2)),
         )
-        self.chan_attn = ChannelAttention(in_channels)
+        # self.chan_attn = ChannelAttention(in_channels)
         self.embedding = nn.Linear(out_dim*in_size//4, emb_dim)
 
     def forward(self, x:torch.Tensor):
@@ -107,7 +107,7 @@ class fNIRS_Temporal_Encoder(nn.Module):
             # nn.BatchNorm3d(out_dim),
             nn.GroupNorm(groups, out_dim),
         )
-        self.chan_attn = ChannelAttention(in_channels)
+        # self.chan_attn = ChannelAttention(in_channels)
         self.embedding = nn.Linear(out_dim*in_size, emb_dim)
 
     def forward(self, x:torch.Tensor):
@@ -118,6 +118,99 @@ class fNIRS_Temporal_Encoder(nn.Module):
         x = x.squeeze(3).permute(0,2,1,3).flatten(2)
         return self.embedding(x)
 
+class fNIRS_Encoder_L(nn.Module):
+    def __init__(self, in_channels, in_size, hid_dim, out_dim, emb_dim, act=nn.GELU, groups=4):
+        super(fNIRS_Encoder_L, self).__init__()
+        self.in_chan = in_channels
+        self.conv_block = nn.Sequential(
+            nn.Conv3d(1, hid_dim, (1, 1, in_size)),
+            act(),
+            nn.GroupNorm(groups, hid_dim),
+        )
+        self.conv_block2 = nn.Sequential(
+            nn.Conv2d(hid_dim, hid_dim, (1, 2), stride=(1,2)),
+            act(),
+            nn.GroupNorm(groups, hid_dim),
+        )
+        self.conv_block3 = nn.Sequential(
+            nn.Conv1d(hid_dim, hid_dim, 1),
+            act(),
+            nn.GroupNorm(groups, hid_dim),
+        )
+        self.conv_block4 = nn.Sequential(
+            nn.Conv3d(hid_dim, out_dim, (1,2,1)),
+            act(),
+            nn.GroupNorm(groups, out_dim),
+            nn.Conv3d(out_dim, out_dim, (1,1,7)),
+            act(),
+            nn.GroupNorm(groups, out_dim),
+        )
+
+        self.embedding = nn.Linear(out_dim, emb_dim)
+
+    def forward(self, x:torch.Tensor):
+        x = x.unsqueeze(1) # (batch, 1, num_segments, channels, segment_length) 
+        x = self.conv_block(x)  # (batch, out_dim, num_segments, channels, 1)
+        x = x.squeeze()
+        a = self.conv_block2(x[:,:,:,:12]).unsqueeze(3)  # (batch, out_dim, num_segments, 1, channels)
+        b = self.conv_block2(x[:,:,:,13:25]).unsqueeze(3)  # (batch, out_dim, num_segments, 1, channels)
+        c = self.conv_block3(x[:,:,:,12]).unsqueeze(3).unsqueeze(3)  # (batch, out_dim, num_segments, 1, 1)
+        d = self.conv_block3(x[:,:,:,25]).unsqueeze(3).unsqueeze(3)  # (batch, out_dim, num_segments, 1, 1)
+        x = torch.cat([torch.cat([a,c], dim=4), torch.cat([b,d], dim=4)], dim=3)  # (batch, out_dim, num_segments, 2, channels)
+        x = self.conv_block4(x) # (batch, out_dim, num_segments, 1, 1)
+        x = x.squeeze().permute(0,2,1) # (batch, num_segments, out_dim)
+        return self.embedding(x)
+
+class fNIRS_Encoder_R(nn.Module):
+    def __init__(self, in_channels, in_size, hid_dim, out_dim, emb_dim, act=nn.GELU, groups=4):
+        super(fNIRS_Encoder_R, self).__init__()
+        self.in_chan = in_channels
+        self.conv_block = nn.Sequential(
+            nn.Conv3d(1, hid_dim, (1, 13, in_size), stride=(1,13,1)),
+            act(),
+            nn.GroupNorm(groups, hid_dim),
+            nn.Conv3d(hid_dim, out_dim, (1, 2, 1)),
+            act(),
+            nn.GroupNorm(groups, out_dim),
+        )
+
+        self.embedding = nn.Linear(out_dim, emb_dim)
+
+    def forward(self, x:torch.Tensor):
+        x = x.unsqueeze(1) # (batch, 1, num_segments, channels, segment_length) 
+        x = self.conv_block(x)  # (batch, out_dim, num_segments, 1, 1)
+        x = x.squeeze().permute(0,2,1) # (batch, num_segments, out_dim)
+        return self.embedding(x)
+
+class fNIRS_Encoder_Y(nn.Module):
+    def __init__(self, in_channels, in_size, kernel_size, hid_dim, out_dim, emb_dim, act=nn.GELU, groups=4):
+        super(fNIRS_Encoder_Y, self).__init__()
+        self.conv_block1 = nn.Sequential(
+            nn.Conv3d(1, hid_dim, 1),
+            act(),
+            nn.GroupNorm(groups, hid_dim),
+        )
+        self.conv_block = nn.Sequential(
+            nn.Conv3d(hid_dim, hid_dim, (1, 1, kernel_size), padding=(0,0,kernel_size//2)),
+            act(),
+            nn.GroupNorm(groups, hid_dim),
+        )
+        self.conv_block2 = nn.Sequential(
+            nn.Conv3d(hid_dim, out_dim, (1, in_channels, 1)),
+            act(),
+            nn.GroupNorm(groups, out_dim),
+        )
+
+        self.embedding = nn.Linear(out_dim*in_size, emb_dim)
+
+    def forward(self, x:torch.Tensor):
+        x = x.unsqueeze(1) # (batch, 1, num_segments, channels, segment_length) 
+        x = self.conv_block1(x) # (batch, out_dim, num_segments, channels, segment_length) 
+        x = self.conv_block(x) + x # (batch, out_dim, num_segments, channels, segment_length) 
+        x = self.conv_block2(x) # (batch, out_dim, num_segments, 1, segment_length) 
+        x = x.squeeze().permute(0,2,1,3).flatten(2) # (batch, num_segments, out_dim)
+        return self.embedding(x)
+    
 class LSTMClassifier(nn.Module):
     def __init__(self, input_dim, num_segments, num_classes):
         super(LSTMClassifier, self).__init__()
@@ -207,14 +300,17 @@ class SyncNet3(nn.Module):
         if data_mode==1:
             self.eeg_emb = EEG_Temporal_Encoder(eeg_shape[0], round(eeg_shape[-1]/num_segments), 13, 32, 64, embed_dim, actv, pool, num_groups)
         elif data_mode == 2:
-            self.eeg_emb = fNIRS_Temporal_Encoder(eeg_shape[0], round(eeg_shape[-1]/num_segments), 5, 32, 64, embed_dim, actv, num_groups)
-        self.pos_encoder = PositionalEncoding(embed_dim)
-        self.fusion_conv = nn.Conv1d(embed_dim, embed_dim, kernel_size=1)
+            self.eeg_emb = fNIRS_Encoder_Y(eeg_shape[0], round(eeg_shape[-1]/num_segments), 13, 32, 64, embed_dim, actv, num_groups)
+            # self.eeg_emb = fNIRS_Encoder_L(eeg_shape[0], round(eeg_shape[-1]/num_segments), 32, 64, embed_dim, actv, num_groups)
+            # self.eeg_emb = fNIRS_Temporal_Encoder(eeg_shape[0], round(eeg_shape[-1]/num_segments), 5, 32, 64, embed_dim, actv, num_groups)
+        self.pos_encoder = PositionalEncoding(256)
+        self.fusion_conv = nn.Linear(embed_dim, 256)
+        # self.fusion_conv = nn.Conv1d(embed_dim, embed_dim, kernel_size=1)
         
         if use_lstm:
             self.classifier = LSTMClassifier(embed_dim, num_segments, num_classes)
         else:
-            self.classifier = TransformerClassifier(embed_dim, num_segments, num_heads, num_layers, num_classes)
+            self.classifier = TransformerClassifier(256, num_segments, num_heads, num_layers, num_classes)
     
     def forward(self, eeg):
         # segmentation
@@ -223,8 +319,61 @@ class SyncNet3(nn.Module):
 
         eeg = self.eeg_emb(eeg) # (batch, num_segments, embed_dim)
         # print(eeg.shape)
-
-        eeg = self.fusion_conv(eeg.permute(0, 2, 1)).permute(0, 2, 1)  # (batch, total_tokens, embed_dim)
+        eeg = self.fusion_conv(eeg)
+        # eeg = self.fusion_conv(eeg.permute(0, 2, 1)).permute(0, 2, 1)  # (batch, total_tokens, embed_dim)
         eeg = self.pos_encoder(eeg)  # (batch, total_tokens, embed_dim)
         # print(eeg.shape)
         return self.classifier(eeg)  # (batch, num_classes)
+    
+class SyncNet4(nn.Module):
+    def __init__(self, 
+                 eeg_shape, 
+                 fnirs_shape, 
+                 num_segments=12,
+                 embed_dim=128, 
+                 num_heads=4, 
+                 num_layers=2, 
+                 use_lstm = False,
+                 num_groups = 4,
+                 actv_mode = "elu", 
+                 pool_mode = "mean", 
+                 num_classes=1):
+        super(SyncNet4, self).__init__()
+
+        self.num_segments = num_segments
+        actv = dict(elu=nn.ELU, gelu=nn.GELU, relu=nn.ReLU)[actv_mode]
+        pool = dict(max=nn.MaxPool3d, mean=nn.AvgPool3d)[pool_mode]
+
+        self.eeg_emb = EEG_Temporal_Encoder(eeg_shape[0], round(eeg_shape[-1]/num_segments), 13, 32, 64, embed_dim, actv, pool, num_groups)
+        self.fnirs_emb = fNIRS_Encoder_L(eeg_shape[0], ceil(fnirs_shape[-1]/num_segments), 32, 64, 64, actv, num_groups)
+        # self.fnirs_emb = fNIRS_Temporal_Encoder(fnirs_shape[0], ceil(fnirs_shape[-1]/num_segments), 5, 16, 32, embed_dim, actv, num_groups)
+
+        self.emb2 = nn.Linear(64, embed_dim)
+        self.pos_encoder = PositionalEncoding(embed_dim)
+        # self.fusion_conv = nn.Conv1d(embed_dim*2, embed_dim, kernel_size=1)
+        self.fusion_conv = nn.Sequential(
+            nn.Linear(embed_dim*2, embed_dim),
+            nn.GroupNorm(num_groups, num_segments)
+        )
+        if use_lstm:
+            self.classifier = LSTMClassifier(embed_dim, num_segments, num_classes)
+        else:
+            self.classifier = TransformerClassifier(embed_dim, num_segments, num_heads, num_layers, num_classes)
+    
+    def forward(self, eeg, fnirs):
+        # segmentation
+        eeg = segment_data(eeg, self.num_segments) # (batch, num_segments, channels, segment_length) 
+        fnirs = segment_data(fnirs, self.num_segments) # (batch, num_segments, channels, segment_length)
+        # print(eeg.shape)
+
+        eeg = self.eeg_emb(eeg) # (batch, num_segments, embed_dim)
+        fnirs = self.fnirs_emb(fnirs) # (batch, num_segments, embed_dim)
+        fnirs = self.emb2(fnirs)
+        # print(eeg.shape)
+
+        fused_tokens = torch.cat([eeg, fnirs], dim=2)  # (batch, total_tokens, embed_dim*2)
+        # fused_tokens = self.fusion_conv(fused_tokens.permute(0, 2, 1)).permute(0, 2, 1)  # (batch, total_tokens, embed_dim)
+        fused_tokens = self.fusion_conv(fused_tokens)  # (batch, total_tokens, embed_dim)
+        fused_tokens = self.pos_encoder(fused_tokens)  # (batch, total_tokens, embed_dim)
+        # print(eeg.shape)
+        return self.classifier(fused_tokens)  # (batch, num_classes)

@@ -5,7 +5,7 @@ import torch.nn.utils.prune as prune
 
 from trainer import *
 from models.syncnet import SyncNet
-from models.syncnet2 import SyncNet2, SyncNet3
+from models.syncnet2 import SyncNet2, SyncNet3, SyncNet4
 from models.eegnet import EEGNet
 from models.shallowfbcspnet import ShallowFBCSPNet
 from models.deep4net import Deep4Net
@@ -87,14 +87,14 @@ def leave_one_out_cross_validation(label_type:int=0, data_mode:int=0):
         if data_mode == 0:
             model = SyncNet2(emotion_dataset.data_shape_eeg, 
                             emotion_dataset.data_shape_fnirs, 
-                            num_segments=12,
+                            num_segments=20,
                             embed_dim=256,
                             num_heads=4,
                             num_layers=2,
                             use_lstm=False,
                             num_groups=4,
                             actv_mode="elu",
-                            pool_mode="mean", 
+                            pool_mode="max", 
                             num_classes=1).to(DEVICE)
             trainer = train_bin_cls2
             tester = test_bin_cls2
@@ -148,6 +148,6 @@ def leave_one_out_cross_validation(label_type:int=0, data_mode:int=0):
 
 
 if __name__ == "__main__":
-    for i in range(1):
+    for i in range(1,3):
         leave_one_out_cross_validation(0,i)
         # leave_one_out_cross_validation(1,i)

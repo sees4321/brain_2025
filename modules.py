@@ -44,8 +44,8 @@ class Emotion_DataModule():
             data = np.load(f'{path}/emotion_data_ica.npz')
         else:
             data = np.load(f'{path}/emotion_data.npz')
-        # self.fnirs = np.load(f'{path}/emo_fnirs.npy') # (36, 8, 26, 742) 
-        self.fnirs = data['fnirs'] # (36, 8, 26, 371) 
+        self.fnirs = np.load(f'{path}/emo_fnirs.npy') # (36, 8, 26, 371) 
+        # self.fnirs = data['fnirs'] # (36, 8, 26, 371) 
         # self.fnirs_resting = data['fnirs_resting'] # (36, 8, 26, 247) 
         self.eeg = data['eeg'] # (36, 8, 7, 15360)
         self.eeg_resting = data['eeg_resting'] # (36, 2, 7, 7680)
@@ -67,7 +67,7 @@ class Emotion_DataModule():
 
         # segmentation
         self.eeg, n_windows = self.window_slicing(self.eeg, start_point, window_len, 120)
-        self.fnirs, n_windows = self.window_slicing(self.fnirs, start_point, window_len, 120)
+        self.fnirs, n_windows = self.window_slicing(self.fnirs, start_point-60, window_len, 60)
         self.label = np.repeat(self.label, n_windows, 1)
         self.data_shape_eeg = list(self.eeg.shape[-2:])
         self.data_shape_fnirs = list(self.fnirs.shape[-2:])

@@ -14,33 +14,30 @@ from models.bimodalnet_old1 import BimodalNet, Config
 # from models.fnirs_model import *
 # from models.hirenet import HiRENet, make_input
 from models.MTCA_CapsNet import MTCA_CapsNet
-from modules import Emotion_DataModule, MIST_DataModule
+from modules import Stroop_DataModule
 from utils import *
 from torchmetrics.classification import BinaryConfusionMatrix
 
 
-def leave_one_out_cross_validation(label_type:int=0, data_mode:int=0):
+
+def leave_one_out_cross_validation(data_mode:int=0):
     ManualSeed(0)
     learning_rate = 5e-4
     num_batch = 16
-    num_epochs = 30
-    min_epoch = num_epochs
+    num_epochs = 50
+    min_epoch = 50
     time = datetime.datetime.now().strftime('%m%d_%H%M')
-    path = 'D:/One_한양대학교/private object minsu/coding/data/brain_2025'
+    path = 'D:\One_한양대학교\private object minsu\coding\data\\fNIRS-EEG_Stroop'
     # path = 'D:/KMS/data/brain_2025'
-
-    emotion_dataset = Emotion_DataModule(path,
-                                         data_mode=data_mode,
-                                         label_type=label_type,
-                                         ica=True,
-                                         ica=True,
-                                         start_point=60,
-                                         window_len=60,
-                                         num_val=0,
-                                         batch_size=num_batch,
-                                         transform_eeg=None,
-                                         transform_fnirs=None)
     
+    dataset = Stroop_DataModule(path,
+                                data_mode=0,
+                                start_point=0,
+                                window_len=32,
+                                num_val=0,
+                                batch_size=num_batch,
+                                transform_eeg=None,
+                                transform_fnirs=None)
     # config = Config(
     #     eeg_channels=emotion_dataset.eeg.shape[2],
     #     eeg_num_samples=emotion_dataset.eeg.shape[-1],
@@ -59,7 +56,7 @@ def leave_one_out_cross_validation(label_type:int=0, data_mode:int=0):
     ts_spc = []
     # preds = np.zeros((num_subj,8)) # model predictions
     # targets = np.zeros((num_subj,8)) # labels
-    for subj, data_loaders in enumerate(emotion_dataset):
+    for subj, data_loaders in enumerate(dataset):
         train_loader, val_loader, test_loader = data_loaders
 
         # model = ShallowFBCSPNet([3,fs*60], fs).to(DEVICE)
@@ -78,8 +75,8 @@ def leave_one_out_cross_validation(label_type:int=0, data_mode:int=0):
         # model = Bimodal_attn_model(HiRENet3(emb_dim=dim), EEGNet_fNIRS3(emb_dim=dim), 1).to(DEVICE)
 
         if data_mode == 0:
-            model = SyncNet4(emotion_dataset.data_shape_eeg, 
-                            emotion_dataset.data_shape_fnirs, 
+            model = SyncNet2(dataset.data_shape_eeg, 
+                            dataset.data_shape_fnirs, 
                             num_segments=20,
                             embed_dim=256,
                             num_heads=4,
@@ -92,10 +89,10 @@ def leave_one_out_cross_validation(label_type:int=0, data_mode:int=0):
             trainer = train_bin_cls2
             tester = test_bin_cls2
         else:
-            model = SyncNet3(emotion_dataset.data_shape_eeg if data_mode==1 else emotion_dataset.data_shape_fnirs, 
+            model = SyncNet3(dataset.data_shape_eeg if data_mode==1 else dataset.data_shape_fnirs, 
                             data_mode=data_mode,
                             num_segments=12,
-                            embed_dim=64,
+                            embed_dim=256,
                             num_heads=4,
                             num_layers=2,
                             use_lstm=False,
@@ -141,7 +138,5 @@ def leave_one_out_cross_validation(label_type:int=0, data_mode:int=0):
 
 
 if __name__ == "__main__":
-    for i in range(0,1):
-        leave_one_out_cross_validation(1,i)
-        leave_one_out_cross_validation(0,i)
-        print()
+    for i in range(3):
+        leave_one_out_cross_validation(i)

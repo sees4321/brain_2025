@@ -33,6 +33,7 @@ def leave_one_out_cross_validation(label_type:int=0, data_mode:int=0):
                                          data_mode=data_mode,
                                          label_type=label_type,
                                          ica=True,
+                                         ica=True,
                                          start_point=60,
                                          window_len=60,
                                          num_val=0,
@@ -79,14 +80,14 @@ def leave_one_out_cross_validation(label_type:int=0, data_mode:int=0):
         if data_mode == 0:
             model = SyncNet4(emotion_dataset.data_shape_eeg, 
                             emotion_dataset.data_shape_fnirs, 
-                            num_segments=12,
+                            num_segments=20,
                             embed_dim=256,
                             num_heads=4,
                             num_layers=2,
                             use_lstm=False,
                             num_groups=4,
                             actv_mode="elu",
-                            pool_mode="mean", 
+                            pool_mode="max", 
                             num_classes=1).to(DEVICE)
             trainer = train_bin_cls2
             tester = test_bin_cls2
@@ -140,7 +141,7 @@ def leave_one_out_cross_validation(label_type:int=0, data_mode:int=0):
 
 
 if __name__ == "__main__":
-    for i in range(1,2):
-        leave_one_out_cross_validation(0,i)
+    for i in range(0,1):
         leave_one_out_cross_validation(1,i)
+        leave_one_out_cross_validation(0,i)
         print()

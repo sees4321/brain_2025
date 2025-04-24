@@ -349,7 +349,96 @@ class Stroop_DataModule():
         random.shuffle(subj)
         return subj[self.num_val:], subj[:self.num_val]
 
+class MIMA_DataModule():
+    r'''
+    Create MI,MA dataset for leave-one-subject-out cross-validation
 
+    Args:
+        path (str): path for the original data.
+        data_mode (int): 0 - eeg + fnirs, 1 - only eeg, 2 - only fnirs
+        label_type (int): 0 - MI classification, 1 - MA classification
+        ica (bool): load data_ica (default: True)
+        start_point (int): start_point of the segmentation in seconds. (default: 60)
+        window_len (int): window length in seconds for segmentation. (default: 60)
+        num_val (int): number of subjects for validation. (default: 3)
+        batch_size (int): batch size of the dataloader. (default: 16)
+        transform (function): transform function for the data (default: None)
+    '''
+    def __init__(self, 
+                 path:str, # 'D:\One_한양대학교\private object minsu\coding\data\\fNIRS-EEG_Stroop'
+                 data_mode:int = 0,
+                 label_type:int = 0,
+                 num_val:int = 3,
+                 batch_size:int = 16,
+                 transform_eeg = None,
+                 transform_fnirs = None,
+                 ):
+        super().__init__()
+
+        self.data_mode = data_mode
+        self.batch_size = batch_size
+        self.num_val = num_val
+        self.test_idx = 0
+        
+        # load data
+        data = np.load(f'{path}/{'MI' if label_type == 0 else 'MA'}.npz')
+        self.fnirs = data['fnirs'] # (29, 60, 72, 100) 
+        self.eeg = data['eeg'] # (29, 60, 30, 2000)
+        self.label = data['label'] # (29, 60)
+        self.subjects = [i for i in range(self.eeg.shape[0])]
+
+        # segmentation
+        self.data_shape_eeg = list(self.eeg.shape[-2:])
+        self.data_shape_fnirs = list(self.fnirs.shape[-2:])
+
+        if transform_eeg:
+            self.eeg = transform_eeg(self.eeg)
+        if transform_fnirs:
+            self.fnirs = transform_fnirs(self.fnirs)
+    
+    def __len__(self):
+        return self.subjects
+
+    def __iter__(self):
+        return self
+    
+    def __next__(self):
+        if self.test_idx < len(self.subjects):
+            eeg_torch = torch.from_numpy(self.eeg[self.subjects[self.test_idx]]).float()
+            fnirs_torch = torch.from_numpy(self.fnirs[self.subjects[self.test_idx]]).float()
+            label_torch = torch.from_numpy(self.label[self.subjects[self.test_idx]]).long()
+            test_loader = self.create_dataloader(eeg_torch, fnirs_torch, label_torch)
+
+            train_subjects, val_subjects = self.train_val_split()
+            eeg_torch = torch.from_numpy(np.concatenate([self.eeg[i] for i in train_subjects])).float()
+            fnirs_torch = torch.from_numpy(np.concatenate([self.fnirs[i] for i in train_subjects])).float()
+            label_torch = torch.from_numpy(np.concatenate([self.label[i] for i in train_subjects])).long()
+            train_loader = self.create_dataloader(eeg_torch, fnirs_torch, label_torch)
+
+            self.test_idx += 1
+            if len(val_subjects) > 0:
+                eeg_torch = torch.from_numpy(np.concatenate([self.eeg[i] for i in val_subjects])).float()
+                fnirs_torch = torch.from_numpy(np.concatenate([self.fnirs[i] for i in val_subjects])).float()
+                label_torch = torch.from_numpy(np.concatenate([self.label[i] for i in val_subjects])).long()
+                val_loader = self.create_dataloader(eeg_torch, fnirs_torch, label_torch, True)
+
+                return train_loader, val_loader, test_loader
+            return train_loader, None, test_loader
+        else:
+            raise StopIteration
+    
+    def create_dataloader(self, eeg, fnirs, label, shuffle=False):
+        if self.data_mode == 0:
+            return DataLoader(BimodalDataSet(eeg, fnirs, label), self.batch_size, shuffle=shuffle)
+        elif self.data_mode == 1:
+            return DataLoader(CustomDataSet(eeg, label), self.batch_size, shuffle=shuffle)
+        elif self.data_mode == 2:
+            return DataLoader(CustomDataSet(fnirs, label), self.batch_size, shuffle=shuffle)
+
+    def train_val_split(self):
+        subj = [i for i in self.subjects if i != self.subjects[self.test_idx]]
+        random.shuffle(subj)
+        return subj[self.num_val:], subj[:self.num_val]
 
 if __name__ == '__main__':
     # emotion_dataset = Emotion_DataModule('D:/One_한양대학교/private object minsu/coding/data/brain_2025',

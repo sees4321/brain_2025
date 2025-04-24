@@ -240,6 +240,7 @@ class SyncNet2(nn.Module):
                  num_groups = 4,
                  actv_mode = "elu", 
                  pool_mode = "mean", 
+                 k_size = [13,5],
                  num_classes=1):
         super(SyncNet2, self).__init__()
 
@@ -247,8 +248,8 @@ class SyncNet2(nn.Module):
         actv = dict(elu=nn.ELU, gelu=nn.GELU, relu=nn.ReLU)[actv_mode]
         pool = dict(max=nn.MaxPool3d, mean=nn.AvgPool3d)[pool_mode]
 
-        self.eeg_emb = EEG_Temporal_Encoder(eeg_shape[0], round(eeg_shape[-1]/num_segments), 13, 16, 32, embed_dim, actv, pool, num_groups)
-        self.fnirs_emb = fNIRS_Temporal_Encoder(fnirs_shape[0], ceil(fnirs_shape[-1]/num_segments), 5, 16, 32, embed_dim, actv, num_groups)
+        self.eeg_emb = EEG_Temporal_Encoder(eeg_shape[0], round(eeg_shape[-1]/num_segments), k_size[0], 16, 32, embed_dim, actv, pool, num_groups)
+        self.fnirs_emb = fNIRS_Temporal_Encoder(fnirs_shape[0], ceil(fnirs_shape[-1]/num_segments), k_size[1], 16, 32, embed_dim, actv, num_groups)
         self.pos_encoder = PositionalEncoding(embed_dim)
         # self.fusion_conv = nn.Conv1d(embed_dim*2, embed_dim, kernel_size=1)
         self.fusion_conv = nn.Sequential(
@@ -290,6 +291,7 @@ class SyncNet3(nn.Module):
                  num_groups = 4,
                  actv_mode = "elu", 
                  pool_mode = "mean", 
+                 k_size = [13,5],
                  num_classes=1):
         super(SyncNet3, self).__init__()
 
@@ -298,11 +300,11 @@ class SyncNet3(nn.Module):
         pool = dict(max=nn.MaxPool3d, mean=nn.AvgPool3d)[pool_mode]
         
         if data_mode==1:
-            self.eeg_emb = EEG_Temporal_Encoder(eeg_shape[0], round(eeg_shape[-1]/num_segments), 13, 32, 64, embed_dim, actv, pool, num_groups)
+            self.eeg_emb = EEG_Temporal_Encoder(eeg_shape[0], round(eeg_shape[-1]/num_segments), k_size[0], 32, 64, embed_dim, actv, pool, num_groups)
         elif data_mode == 2:
-            self.eeg_emb = fNIRS_Encoder_Y(eeg_shape[0], round(eeg_shape[-1]/num_segments), 13, 32, 64, embed_dim, actv, num_groups)
+            # self.eeg_emb = fNIRS_Encoder_Y(eeg_shape[0], round(eeg_shape[-1]/num_segments), 13, 32, 64, embed_dim, actv, num_groups)
             # self.eeg_emb = fNIRS_Encoder_L(eeg_shape[0], round(eeg_shape[-1]/num_segments), 32, 64, embed_dim, actv, num_groups)
-            # self.eeg_emb = fNIRS_Temporal_Encoder(eeg_shape[0], round(eeg_shape[-1]/num_segments), 5, 32, 64, embed_dim, actv, num_groups)
+            self.eeg_emb = fNIRS_Temporal_Encoder(eeg_shape[0], round(eeg_shape[-1]/num_segments), k_size[1], 32, 64, embed_dim, actv, num_groups)
         self.pos_encoder = PositionalEncoding(256)
         self.fusion_conv = nn.Linear(embed_dim, 256)
         # self.fusion_conv = nn.Conv1d(embed_dim, embed_dim, kernel_size=1)

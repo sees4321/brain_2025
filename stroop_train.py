@@ -27,11 +27,11 @@ def leave_one_out_cross_validation(data_mode:int=0):
     num_epochs = 50
     min_epoch = 50
     time = datetime.datetime.now().strftime('%m%d_%H%M')
-    path = 'D:\One_한양대학교\private object minsu\coding\data\\fNIRS-EEG_Stroop'
-    # path = 'D:/KMS/data/brain_2025'
+    # path = 'D:\One_한양대학교\private object minsu\coding\data\\fNIRS-EEG_Stroop'
+    path = 'D:/KMS/data/brain_2025'
     
     dataset = Stroop_DataModule(path,
-                                data_mode=0,
+                                data_mode=data_mode,
                                 start_point=0,
                                 window_len=32,
                                 num_val=0,
@@ -77,28 +77,30 @@ def leave_one_out_cross_validation(data_mode:int=0):
         if data_mode == 0:
             model = SyncNet2(dataset.data_shape_eeg, 
                             dataset.data_shape_fnirs, 
-                            num_segments=20,
+                            num_segments=16,
                             embed_dim=256,
                             num_heads=4,
                             num_layers=2,
                             use_lstm=False,
                             num_groups=4,
-                            actv_mode="elu",
+                            actv_mode="relu",
                             pool_mode="max", 
+                            k_size=[13,51],
                             num_classes=1).to(DEVICE)
             trainer = train_bin_cls2
             tester = test_bin_cls2
         else:
             model = SyncNet3(dataset.data_shape_eeg if data_mode==1 else dataset.data_shape_fnirs, 
                             data_mode=data_mode,
-                            num_segments=12,
+                            num_segments=16,
                             embed_dim=256,
                             num_heads=4,
                             num_layers=2,
                             use_lstm=False,
                             num_groups=4,
-                            actv_mode="elu",
-                            pool_mode="mean", 
+                            actv_mode="relu",
+                            pool_mode="max", 
+                            k_size=[13,51],
                             num_classes=1).to(DEVICE)
             trainer = train_bin_cls
             tester = test_bin_cls
@@ -129,7 +131,7 @@ def leave_one_out_cross_validation(data_mode:int=0):
         ts_sen.append(cf[1,1]/(cf[1,1]+cf[1,0]))
         ts_spc.append(cf[0,0]/(cf[0,0]+cf[0,1]))
 
-        print(f'[{subj:0>2}] acc: {test_acc} %, training acc: {train_acc[-1]:.2f} %, training loss: {train_loss[-1]:.3f}')
+        print(f'[{subj:0>2}] acc: {test_acc} %, training acc: {train_acc[-1]:.2f} %, training loss: {train_loss[-1]:.3f}, sen: {ts_sen[-1]*100:.2f}, spc: {ts_spc[-1]*100:.2f}')
         # print(f'[{subj:0>2}] acc: {test_acc} %, training acc: {train_acc[es.epoch]:.2f} %, training loss: {train_loss[es.epoch]:.3f}, val acc: {val_acc[es.epoch]:.2f} %, val loss: {val_loss[es.epoch]:.3f}, es: {es.epoch}')
 
     print(f'avg Acc: {np.mean(ts_acc):.2f} %, std: {np.std(ts_acc):.2f}, sen: {np.mean(ts_sen)*100:.2f}, spc: {np.mean(ts_spc)*100:.2f}')

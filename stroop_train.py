@@ -12,7 +12,7 @@ from models.deep4net import Deep4Net
 from models.cnnlstm import CNNLSTM
 from models.bimodalnet_old1 import BimodalNet, Config
 # from models.fnirs_model import *
-# from models.hirenet import HiRENet, make_input
+from models.hirenet import HiRENet, make_input
 from models.MTCA_CapsNet import MTCA_CapsNet
 from modules import Stroop_DataModule
 from utils import *
@@ -36,7 +36,7 @@ def leave_one_out_cross_validation(data_mode:int=0):
                                 window_len=32,
                                 num_val=0,
                                 batch_size=num_batch,
-                                transform_eeg=None,
+                                transform_eeg=make_input,
                                 transform_fnirs=None)
     # config = Config(
     #     eeg_channels=emotion_dataset.eeg.shape[2],
@@ -87,21 +87,31 @@ def leave_one_out_cross_validation(data_mode:int=0):
                             pool_mode="max", 
                             k_size=[13,51],
                             num_classes=1).to(DEVICE)
+            config = Config(
+                eeg_channels=dataset.eeg.shape[2],
+                eeg_num_samples=dataset.eeg.shape[-1],
+                fnirs_channels=dataset.fnirs.shape[2],
+                fnirs_num_samples=dataset.fnirs.shape[-1],
+                eeg_temporal_length=64,
+                num_classes=1,
+            )
+            model = BimodalNet(config).to(DEVICE)
             trainer = train_bin_cls2
             tester = test_bin_cls2
         else:
-            model = SyncNet3(dataset.data_shape_eeg if data_mode==1 else dataset.data_shape_fnirs, 
-                            data_mode=data_mode,
-                            num_segments=16,
-                            embed_dim=256,
-                            num_heads=4,
-                            num_layers=2,
-                            use_lstm=False,
-                            num_groups=4,
-                            actv_mode="relu",
-                            pool_mode="max", 
-                            k_size=[13,51],
-                            num_classes=1).to(DEVICE)
+            # model = SyncNet3(dataset.data_shape_eeg if data_mode==1 else dataset.data_shape_fnirs, 
+            #                 data_mode=data_mode,
+            #                 num_segments=16,
+            #                 embed_dim=256,
+            #                 num_heads=4,
+            #                 num_layers=2,
+            #                 use_lstm=False,
+            #                 num_groups=4,
+            #                 actv_mode="relu",
+            #                 pool_mode="max", 
+            #                 k_size=[13,51],
+            #                 num_classes=1).to(DEVICE)
+            model = HiRENet(cls = True).to(DEVICE)
             trainer = train_bin_cls
             tester = test_bin_cls
 

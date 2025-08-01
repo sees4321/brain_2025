@@ -60,16 +60,24 @@ class EEGSubNet(nn.Module):
         self.batch_norm = nn.BatchNorm2d(spatial_filters)
         self.mean_pool = nn.AvgPool2d(kernel_size = (1, 5), stride=(1, 5))
         self.dropout = nn.Dropout(dropout)
+        final_kernel_size = spatial_filters * ((num_samples - temporal_length - 5)//5 + 1)
+        self.fc = nn.Linear(final_kernel_size, gru_input)
         # self.fc = nn.Linear((spatial_filters * (num_samples - temporal_length + 1)), gru_input)  # Adjust based on input dimensions
-        self.fc = nn.Linear(60920, gru_input)
+        # self.fc = nn.Linear(60920, gru_input)
         #self.fc = nn.Linear(61160, gru_input)
     def forward(self, x):
+        x = x.unsqueeze(1)
+        # print(x.shape)
         x = F.elu(self.conv1(x))
+        # print(x.shape)
         x = F.elu(self.conv2(x))
+        # print(x.shape)
         x = self.batch_norm(x)
         x = self.mean_pool(x)
+        # print(x.shape)
         x = self.dropout(x)
         x = x.view(x.size(0), -1)  # Flatten
+        # print(x.shape)
         x = self.fc(x)
         return x
 
@@ -85,6 +93,7 @@ class FNIRSSubNet(nn.Module):
         self.fc = nn.Linear(spatial_filters * (num_samples - temporal_length + 1), gru_input)  # Adjust based on input dimensions
 
     def forward(self, x):
+        x = x.unsqueeze(1)
         x = F.elu(self.conv1(x))
         x = F.elu(self.conv2(x))
         x = self.batch_norm(x)
@@ -125,6 +134,7 @@ class BimodalNet(nn.Module):
         self.gru = nn.GRU(config.gru_input*2, config.gru_hidden, batch_first=True)  # 500 + 500 from subnets
         self.dropout = nn.Dropout(config.gru_dropout)
         self.fc = nn.Linear(config.gru_hidden, config.num_classes)
+        self.act = nn.Sigmoid() if config.num_classes == 1 else nn.LogSoftmax(dim=1)
         self.apply_initialization()
 
     def forward(self, eeg_data, fnirs_data):
@@ -136,7 +146,7 @@ class BimodalNet(nn.Module):
         x = self.dropout(gru_out)
         x = self.fc(x)
         # return F.log_softmax(x, dim=1)
-        return F.sigmoid(x)
+        return self.act(x)
 
     def apply_initialization(self):
         # Apply Xavier initialization to EEG and fNIRS subnets

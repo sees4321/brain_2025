@@ -34,6 +34,7 @@ class Emotion_DataModule():
                  ):
         super().__init__()
 
+        self.path = path
         self.data_mode = data_mode
         self.batch_size = batch_size
         self.num_val = num_val
@@ -72,10 +73,12 @@ class Emotion_DataModule():
         self.data_shape_eeg = list(self.eeg.shape[-2:])
         self.data_shape_fnirs = list(self.fnirs.shape[-2:])
 
-        if transform_eeg:
-            self.eeg = transform_eeg(self.eeg)
-        if transform_fnirs:
-            self.fnirs = transform_fnirs(self.fnirs)
+        self.eeg = np.load('out7.npy')
+        self.fnirs = np.load('out13.npy')
+        # if transform_eeg:
+        #     self.eeg = transform_eeg(self.eeg)
+        # if transform_fnirs:
+        #     self.fnirs = transform_fnirs(self.fnirs)
     
     def __len__(self):
         return self.subjects
@@ -133,6 +136,24 @@ class Emotion_DataModule():
         subj = [i for i in self.subjects if i != self.subjects[self.test_idx]]
         random.shuffle(subj)
         return subj[self.num_val:], subj[:self.num_val]
+    
+    def change_label(self, label_type):
+        data = np.load(f'{self.path}/emotion_data_ica.npz')
+        self.label = data['label']
+        # labeling
+        if label_type == 0: # arousal
+            self.label[self.label == 1.0] = 1
+            self.label[self.label == 2.0] = 0
+            self.label[self.label == 3.0] = 1
+            self.label[self.label == 4.0] = 0
+        else: # valence
+            self.label[self.label == 1.0] = 1
+            self.label[self.label == 2.0] = 1
+            self.label[self.label == 3.0] = 0
+            self.label[self.label == 4.0] = 0
+    
+    def change_batch_size(self, num_batch):
+        self.batch_size = num_batch
 
 
 class MIST_DataModule():
@@ -356,7 +377,7 @@ class MIMA_DataModule():
     Args:
         path (str): path for the original data.
         data_mode (int): 0 - eeg + fnirs, 1 - only eeg, 2 - only fnirs
-        label_type (int): 0 - MI classification, 1 - MA classification
+        label_type (int): 0 - MI classification, 1 - MA classification, 2 - WG classification, 3 - dsr, 4 - nback
         ica (bool): load data_ica (default: True)
         start_point (int): start_point of the segmentation in seconds. (default: 60)
         window_len (int): window length in seconds for segmentation. (default: 60)
@@ -381,7 +402,17 @@ class MIMA_DataModule():
         self.test_idx = 0
         
         # load data
-        data = np.load(f'{path}/{'MI' if label_type == 0 else 'MA'}.npz')
+        if label_type == 0:
+            name = 'MI'
+        elif label_type == 1:
+            name = 'MA'
+        elif label_type == 2:
+            name = 'WG'
+        elif label_type == 3:
+            name = 'dsr'
+        elif label_type == 4:
+            name = 'nback'
+        data = np.load(f'{path}/{name}.npz')
         self.fnirs = data['fnirs'] # (29, 60, 72, 100) 
         self.eeg = data['eeg'] # (29, 60, 30, 2000)
         self.label = data['label'] # (29, 60)

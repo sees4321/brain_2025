@@ -28,12 +28,14 @@ class resBlock(nn.Module):
         return out
     
 class HiRENet(nn.Module):
-    def __init__(self, num_chan, conv_chan, num_classes=1, withhil = True):
+    def __init__(self, num_chan, temp_len, conv_chan=16, num_seg=30, num_classes=1, withhil = True):
         super(HiRENet, self).__init__()
 
         self.withhil = withhil
         self.num_chan = num_chan
+        self.temp_len = temp_len
         self.conv_chan = conv_chan
+        self.num_seg = num_seg
         self.num_cls = num_classes
 
         self.layerx = resBlock(self.num_chan, self.conv_chan, 13)
@@ -45,7 +47,7 @@ class HiRENet(nn.Module):
                 nn.Conv2d(self.num_chan, self.conv_chan, kernel_size=(1, 13), padding=(0, 13//2)),
                 nn.BatchNorm2d(self.conv_chan, momentum=.1, affine=True),
                 nn.ELU(),
-                nn.Conv2d(self.conv_chan, self.conv_chan*2, kernel_size=(30, 1)),
+                nn.Conv2d(self.conv_chan, self.conv_chan*2, kernel_size=(num_seg, 1)),
                 nn.BatchNorm2d(self.conv_chan*2, momentum=.1, affine=True),
                 nn.ELU(),
             )    
@@ -54,15 +56,16 @@ class HiRENet(nn.Module):
             nn.Dropout2d(0.5)
         )
         
+        final_kernel_size = (temp_len - 13) // 2 + 1
         self.fc_module = nn.Sequential(
-            nn.Conv2d(self.conv_chan*2,self.num_cls,(1,122)),
+            nn.Conv2d(self.conv_chan*2,self.num_cls,(1,final_kernel_size)),
             nn.Sigmoid() if self.num_cls == 1 else nn.LogSoftmax(),
         )
 
     def forward(self, x):
-        out = self.layerx(x[:,:,:30,:])
+        out = self.layerx(x[:,:,:self.num_seg,:])
         if self.withhil:
-            outy = self.layery(x[:,:,30:,:])
+            outy = self.layery(x[:,:,self.num_seg:,:])
             out = torch.cat((out,outy),dim=1)
         out = self.layer4(out)
         out = self.avgdrp(out)
@@ -72,7 +75,11 @@ class HiRENet(nn.Module):
 def make_input(data:np.ndarray): # 32 * 8 * 8 * 7500 => 32 * 8 * 8 * 30 * 250
     ### data shape: 32 * 7680 (32 electrode channels * 60 s samples of 128 Hz)
     a,b,c,d = data.shape
-    dat1 = data.reshape(a,b,c,30,d//30)
+    if d in [2000, 4000, 8000]:
+        cut = d//400
+    else:
+        cut = 30
+    dat1 = data.reshape(a,b,c,cut,d//cut)
     dat2 = np.imag(hilbert(data))
-    dat2 = dat2.reshape(a,b,c,30,d//30)
+    dat2 = dat2.reshape(a,b,c,cut,d//cut)
     return np.concatenate((dat1, dat2),axis=3)

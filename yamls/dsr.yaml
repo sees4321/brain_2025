@@ -1,0 +1,20 @@
+# SyncNet2
+model: 
+    num_segments: 8
+    embed_dim: 128
+    num_heads: 2
+    num_layers: 1
+    num_groups: 4
+    actv_mode: gelu
+    pool_mode: mean
+    k_size: [13, 3]
+    hid_dim: [16, 32]
+    num_classes: 1
+
+
+training:
+    num_epochs: 50
+    num_batch: 32
+    learning_rate: 1e-4
+    optimizer: Adam
+    exlr_on: False

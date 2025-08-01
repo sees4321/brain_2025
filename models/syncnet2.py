@@ -48,9 +48,12 @@ class TransformerClassifier(nn.Module):
         encoder_layer = nn.TransformerEncoderLayer(d_model=input_dim, nhead=num_heads)
         self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
         self.fc = nn.Sequential(
+            # nn.Dropout(0.3),
             nn.Linear(input_dim*num_segments, num_classes),
-            nn.Sigmoid() if num_classes == 1 else nn.LogSoftmax()
+            #nn.Sigmoid() if num_classes == 1 else nn.LogSoftmax(dim=1)
         )
+        if num_classes == 1:
+            self.fc.add_module('sigmoid',nn.Sigmoid())
     
     def forward(self, x):
         # x shape: (batch, tokens, embed_dim)
@@ -100,6 +103,7 @@ class fNIRS_Temporal_Encoder(nn.Module):
             act(),
             # nn.BatchNorm3d(hid_dim),
             nn.GroupNorm(groups, hid_dim),
+            # nn.AvgPool3d((1,1,5),(1,1,5))
         )
         self.conv_block2 = nn.Sequential(
             nn.Conv3d(hid_dim, out_dim, (1, in_channels, 1)),
@@ -108,14 +112,20 @@ class fNIRS_Temporal_Encoder(nn.Module):
             nn.GroupNorm(groups, out_dim),
         )
         # self.chan_attn = ChannelAttention(in_channels)
+        # self.embedding = nn.Linear(out_dim*in_size//5, emb_dim)
         self.embedding = nn.Linear(out_dim*in_size, emb_dim)
 
     def forward(self, x:torch.Tensor):
         x = x.unsqueeze(1) # (batch, 1, num_segments, channels, segment_length) 
-        x = self.conv_block(x)  # (batch, out_dim, num_segments, 1, reduced_segment_len) 
+        # print(x.shape)
+        x = self.conv_block(x)  # (batch, out_dim, num_segments, channels, reduced_segment_len) 
+        # print(x.shape)
         # x = self.chan_attn(x)
+        # print(x.shape)
         x = self.conv_block2(x)  # (batch, out_dim, num_segments, 1, reduced_segment_len) 
+        # print(x.shape)
         x = x.squeeze(3).permute(0,2,1,3).flatten(2)
+        # print(x.shape)
         return self.embedding(x)
 
 class fNIRS_Encoder_L(nn.Module):
@@ -241,6 +251,7 @@ class SyncNet2(nn.Module):
                  actv_mode = "elu", 
                  pool_mode = "mean", 
                  k_size = [13,5],
+                 hid_dim = [16,32],
                  num_classes=1):
         super(SyncNet2, self).__init__()
 
@@ -248,13 +259,15 @@ class SyncNet2(nn.Module):
         actv = dict(elu=nn.ELU, gelu=nn.GELU, relu=nn.ReLU)[actv_mode]
         pool = dict(max=nn.MaxPool3d, mean=nn.AvgPool3d)[pool_mode]
 
-        self.eeg_emb = EEG_Temporal_Encoder(eeg_shape[0], round(eeg_shape[-1]/num_segments), k_size[0], 16, 32, embed_dim, actv, pool, num_groups)
-        self.fnirs_emb = fNIRS_Temporal_Encoder(fnirs_shape[0], ceil(fnirs_shape[-1]/num_segments), k_size[1], 16, 32, embed_dim, actv, num_groups)
+        self.eeg_emb = EEG_Temporal_Encoder(eeg_shape[0], round(eeg_shape[-1]/num_segments), k_size[0], hid_dim[0], hid_dim[1], embed_dim, actv, pool, num_groups)
+        self.fnirs_emb = fNIRS_Temporal_Encoder(fnirs_shape[0], ceil(fnirs_shape[-1]/num_segments), k_size[1], hid_dim[0], hid_dim[1], embed_dim, actv, num_groups)
         self.pos_encoder = PositionalEncoding(embed_dim)
+        # self.pos_embed = nn.Parameter(torch.randn(1, num_segments, embed_dim))
         # self.fusion_conv = nn.Conv1d(embed_dim*2, embed_dim, kernel_size=1)
         self.fusion_conv = nn.Sequential(
             nn.Linear(embed_dim*2, embed_dim),
-            nn.GroupNorm(num_groups, num_segments)
+            nn.GroupNorm(num_groups, num_segments),
+            # nn.Dropout(0.3)
         )
         if use_lstm:
             self.classifier = LSTMClassifier(embed_dim, num_segments, num_classes)
@@ -273,7 +286,7 @@ class SyncNet2(nn.Module):
 
         fused_tokens = torch.cat([eeg, fnirs], dim=2)  # (batch, total_tokens, embed_dim*2)
         # fused_tokens = self.fusion_conv(fused_tokens.permute(0, 2, 1)).permute(0, 2, 1)  # (batch, total_tokens, embed_dim)
-        fused_tokens = self.fusion_conv(fused_tokens)  # (batch, total_tokens, embed_dim)
+        fused_tokens = self.fusion_conv(fused_tokens) # + self.pos_embed  # (batch, total_tokens, embed_dim)
         fused_tokens = self.pos_encoder(fused_tokens)  # (batch, total_tokens, embed_dim)
         # print(eeg.shape)
         return self.classifier(fused_tokens)  # (batch, num_classes)

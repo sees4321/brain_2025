@@ -12,22 +12,23 @@ from models.deep4net import Deep4Net
 from models.cnnlstm import CNNLSTM
 from models.bimodalnet_old1 import BimodalNet, Config
 # from models.fnirs_model import *
-# from models.hirenet import HiRENet, make_input
+from models.fnirsnet import fNIRSNet
+from models.hirenet import HiRENet, make_input
 from models.MTCA_CapsNet import MTCA_CapsNet
 from modules import Emotion_DataModule, MIST_DataModule
 from utils import *
 from torchmetrics.classification import BinaryConfusionMatrix
 
-ManualSeed(0)
 
-def leave_one_out_cross_validation(label_type:int=0, data_mode:int=0):
-    learning_rate = 5e-4
-    num_batch = 16
+def leave_one_out_cross_validation(data_mode:int=0):
+    ManualSeed(0) 
+    learning_rate = 1e-3
+    num_batch = 8
     num_epochs = 50
     min_epoch = 50
     time = datetime.datetime.now().strftime('%m%d_%H%M')
-    path = 'D:/One_한양대학교/private object minsu/coding/data/brain_2025'
-    # path = 'D:/KMS/data/brain_2025'
+    # path = 'D:/One_한양대학교/private object minsu/coding/data/brain_2025'
+    path = 'D:/KMS/data/brain_2025'
 
     # emotion_dataset = Emotion_DataModule(path,
     #                                      data_mode=data_mode,
@@ -48,14 +49,14 @@ def leave_one_out_cross_validation(label_type:int=0, data_mode:int=0):
                                          batch_size=num_batch,
                                          transform_eeg=None,
                                          transform_fnirs=None)
-    # config = Config(
-    #     eeg_channels=emotion_dataset.eeg.shape[2],
-    #     eeg_num_samples=emotion_dataset.eeg.shape[-1],
-    #     fnirs_channels=emotion_dataset.fnirs.shape[2],
-    #     fnirs_num_samples=emotion_dataset.fnirs.shape[-1],
-    #     eeg_temporal_length=64,
-    #     num_classes=1,
-    # )
+    config = Config(
+        eeg_channels=emotion_dataset.eeg.shape[2],
+        eeg_num_samples=emotion_dataset.eeg.shape[-1],
+        fnirs_channels=emotion_dataset.fnirs.shape[2],
+        fnirs_num_samples=emotion_dataset.fnirs.shape[-1],
+        eeg_temporal_length=64,
+        num_classes=1,
+    )
 
     tr_acc = []
     tr_loss = []
@@ -85,31 +86,34 @@ def leave_one_out_cross_validation(label_type:int=0, data_mode:int=0):
         # model = Bimodal_attn_model(HiRENet3(emb_dim=dim), EEGNet_fNIRS3(emb_dim=dim), 1).to(DEVICE)
 
         if data_mode == 0:
-            model = SyncNet2(emotion_dataset.data_shape_eeg, 
-                            emotion_dataset.data_shape_fnirs, 
-                            num_segments=20,
-                            embed_dim=256,
-                            num_heads=4,
-                            num_layers=2,
-                            use_lstm=False,
-                            num_groups=4,
-                            actv_mode="elu",
-                            pool_mode="max", 
-                            num_classes=1).to(DEVICE)
+            # model = SyncNet2(emotion_dataset.data_shape_eeg, 
+            #                 emotion_dataset.data_shape_fnirs, 
+            #                 num_segments=20,
+            #                 embed_dim=256,
+            #                 num_heads=4,
+            #                 num_layers=2,
+            #                 use_lstm=False,
+            #                 num_groups=4,
+            #                 actv_mode="elu",
+            #                 pool_mode="max", 
+            #                 num_classes=1).to(DEVICE)
+            model = BimodalNet(config).to(DEVICE)
             trainer = train_bin_cls2
             tester = test_bin_cls2
         else:
-            model = SyncNet3(emotion_dataset.data_shape_eeg if data_mode==1 else emotion_dataset.data_shape_fnirs, 
-                            data_mode=data_mode,
-                            num_segments=12,
-                            embed_dim=256,
-                            num_heads=4,
-                            num_layers=2,
-                            use_lstm=False,
-                            num_groups=4,
-                            actv_mode="elu",
-                            pool_mode="mean", 
-                            num_classes=1).to(DEVICE)
+            # model = SyncNet3(emotion_dataset.data_shape_eeg if data_mode==1 else emotion_dataset.data_shape_fnirs, 
+            #                 data_mode=data_mode,
+            #                 num_segments=12,
+            #                 embed_dim=256,
+            #                 num_heads=4,
+            #                 num_layers=2,
+            #                 use_lstm=False,
+            #                 num_groups=4,
+            #                 actv_mode="elu",
+            #                 pool_mode="mean", 
+            #                 num_classes=1).to(DEVICE)
+            model = HiRENet(7,16,num_seg=30).to(DEVICE)
+            # model = fNIRSNet(1,367).to(DEVICE)
             trainer = train_bin_cls
             tester = test_bin_cls
 
@@ -128,7 +132,7 @@ def leave_one_out_cross_validation(label_type:int=0, data_mode:int=0):
         vl_acc.append(val_acc)
         vl_loss.append(val_loss)
 
-        model.load_state_dict(torch.load('best_model.pth'))
+        # model.load_state_dict(torch.load('best_model.pth'))
         # prune.l1_unstructured(model.classifer[0], name='weight', amount=0.3)
         test_acc, preds, targets = tester(model, tst_loader=test_loader)
         ts_acc.append(test_acc)
@@ -148,6 +152,4 @@ def leave_one_out_cross_validation(label_type:int=0, data_mode:int=0):
 
 
 if __name__ == "__main__":
-    for i in range(1,3):
-        leave_one_out_cross_validation(0,i)
-        # leave_one_out_cross_validation(1,i)
+    leave_one_out_cross_validation(0)

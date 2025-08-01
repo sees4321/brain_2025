@@ -45,7 +45,7 @@ for subj in range(1,30):
         ica.apply(eeg)
 
         #nirs
-        nirs = np.array(datan['out'][0][i]['x'][0][0].T, float)*1e6
+        nirs = np.array(datan['out'][0][i]['x'][0][0].T, float)
         eventsn = eventn['mrk'][0][i]['time'][0][0][0]//100
 
         if i % 2 == 0:

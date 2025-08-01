@@ -148,6 +148,7 @@ def leave_one_out_cross_validation(label_type:int=0, data_mode:int=0):
 
 
 if __name__ == "__main__":
-    for i in range(1,3):
-        leave_one_out_cross_validation(0,i)
+    leave_one_out_cross_validation(0,0)
+    # for i in range(1,3):
+    #     leave_one_out_cross_validation(0,i)
         # leave_one_out_cross_validation(1,i)

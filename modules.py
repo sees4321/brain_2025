@@ -381,7 +381,8 @@ class MIMA_DataModule():
         self.test_idx = 0
         
         # load data
-        data = np.load(f'{path}/{'MI' if label_type == 0 else 'MA'}.npz')
+        tp = 'MI' if label_type == 0 else 'MA'
+        data = np.load(f'{path}/{tp}.npz')
         self.fnirs = data['fnirs'] # (29, 60, 72, 100) 
         self.eeg = data['eeg'] # (29, 60, 30, 2000)
         self.label = data['label'] # (29, 60)

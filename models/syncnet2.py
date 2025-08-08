@@ -45,15 +45,16 @@ class PositionalEncoding(nn.Module):
 class TransformerClassifier(nn.Module):
     def __init__(self, input_dim, num_segments, num_heads, num_layers, num_classes):
         super(TransformerClassifier, self).__init__()
-        encoder_layer = nn.TransformerEncoderLayer(d_model=input_dim, nhead=num_heads)
+        encoder_layer = nn.TransformerEncoderLayer(d_model=input_dim, nhead=num_heads, 
+                                                   batch_first=True, activation=F.gelu)
         self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
         self.fc = nn.Sequential(
             # nn.Dropout(0.3),
             nn.Linear(input_dim*num_segments, num_classes),
-            #nn.Sigmoid() if num_classes == 1 else nn.LogSoftmax(dim=1)
+            nn.Sigmoid() if num_classes == 1 else nn.LogSoftmax(dim=1)
         )
-        if num_classes == 1:
-            self.fc.add_module('sigmoid',nn.Sigmoid())
+        # if num_classes == 1:
+        #     self.fc.add_module('sigmoid',nn.Sigmoid())
     
     def forward(self, x):
         # x shape: (batch, tokens, embed_dim)
@@ -275,21 +276,32 @@ class SyncNet2(nn.Module):
             self.classifier = TransformerClassifier(embed_dim, num_segments, num_heads, num_layers, num_classes)
     
     def forward(self, eeg, fnirs):
+        # import time
+        # tm = time.time()
         # segmentation
         eeg = segment_data(eeg, self.num_segments) # (batch, num_segments, channels, segment_length) 
         fnirs = segment_data(fnirs, self.num_segments) # (batch, num_segments, channels, segment_length)
         # print(eeg.shape)
-
+        # print(f'segment: {time.time() - tm:.4f}')
+        # tm = time.time()
         eeg = self.eeg_emb(eeg) # (batch, num_segments, embed_dim)
         fnirs = self.fnirs_emb(fnirs) # (batch, num_segments, embed_dim)
         # print(eeg.shape)
+        # print(f'emb: {time.time() - tm:.4f}')
+        # tm = time.time()
 
         fused_tokens = torch.cat([eeg, fnirs], dim=2)  # (batch, total_tokens, embed_dim*2)
         # fused_tokens = self.fusion_conv(fused_tokens.permute(0, 2, 1)).permute(0, 2, 1)  # (batch, total_tokens, embed_dim)
         fused_tokens = self.fusion_conv(fused_tokens) # + self.pos_embed  # (batch, total_tokens, embed_dim)
         fused_tokens = self.pos_encoder(fused_tokens)  # (batch, total_tokens, embed_dim)
         # print(eeg.shape)
-        return self.classifier(fused_tokens)  # (batch, num_classes)
+        # print(f'enc: {time.time() - tm:.4f}')
+        # tm = time.time()
+        fused_tokens = self.classifier(fused_tokens)  # (batch, num_classes)
+        # print(f'transformer: {time.time() - tm:.4f}')
+        # tm = time.time()
+        return fused_tokens
+
     
 
 class SyncNet3(nn.Module):

@@ -113,11 +113,11 @@ class Emotion_DataModule():
     
     def create_dataloader(self, eeg, fnirs, label, shuffle=False):
         if self.data_mode == 0:
-            return DataLoader(BimodalDataSet(eeg, fnirs, label), self.batch_size, shuffle=shuffle)
+            return DataLoader(BimodalDataSet(eeg, fnirs, label), self.batch_size, shuffle=shuffle, pin_memory=True, pin_memory_device=DEVICE)
         elif self.data_mode == 1:
-            return DataLoader(CustomDataSet(eeg, label), self.batch_size, shuffle=shuffle)
+            return DataLoader(CustomDataSet(eeg, label), self.batch_size, shuffle=shuffle, pin_memory=True, pin_memory_device=DEVICE)
         elif self.data_mode == 2:
-            return DataLoader(CustomDataSet(fnirs, label), self.batch_size, shuffle=shuffle)
+            return DataLoader(CustomDataSet(fnirs, label), self.batch_size, shuffle=shuffle, pin_memory=True, pin_memory_device=DEVICE)
     
     def window_slicing(self, arr, start_point, window_len, total_sec):
         total_len = arr.shape[-1]
@@ -438,12 +438,19 @@ class MIMA_DataModule():
             eeg_torch = torch.from_numpy(self.eeg[self.subjects[self.test_idx]]).float()
             fnirs_torch = torch.from_numpy(self.fnirs[self.subjects[self.test_idx]]).float()
             label_torch = torch.from_numpy(self.label[self.subjects[self.test_idx]]).long()
+            aa = 4
+            # eeg_torch = torch.from_numpy(self.eeg[self.subjects[self.test_idx],aa:]).float()
+            # fnirs_torch = torch.from_numpy(self.fnirs[self.subjects[self.test_idx],aa:]).float()
+            # label_torch = torch.from_numpy(self.label[self.subjects[self.test_idx],aa:]).long()
             test_loader = self.create_dataloader(eeg_torch, fnirs_torch, label_torch)
 
             train_subjects, val_subjects = self.train_val_split()
-            eeg_torch = torch.from_numpy(np.concatenate([self.eeg[i] for i in train_subjects])).float()
-            fnirs_torch = torch.from_numpy(np.concatenate([self.fnirs[i] for i in train_subjects])).float()
-            label_torch = torch.from_numpy(np.concatenate([self.label[i] for i in train_subjects])).long()
+            # eeg_torch = torch.from_numpy(np.concatenate([self.eeg[i] for i in train_subjects])).float()
+            # fnirs_torch = torch.from_numpy(np.concatenate([self.fnirs[i] for i in train_subjects])).float()
+            # label_torch = torch.from_numpy(np.concatenate([self.label[i] for i in train_subjects])).long()
+            eeg_torch = torch.from_numpy(np.concatenate([self.eeg[i] for i in train_subjects]+[self.eeg[self.subjects[self.test_idx],0::5]])).float()
+            fnirs_torch = torch.from_numpy(np.concatenate([self.fnirs[i] for i in train_subjects]+[self.fnirs[self.subjects[self.test_idx],0::5]])).float()
+            label_torch = torch.from_numpy(np.concatenate([self.label[i] for i in train_subjects]+[self.label[self.subjects[self.test_idx],0::5]])).long()
             train_loader = self.create_dataloader(eeg_torch, fnirs_torch, label_torch)
 
             self.test_idx += 1

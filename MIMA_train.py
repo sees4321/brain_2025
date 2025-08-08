@@ -10,7 +10,7 @@ from models.syncnet import SyncNet
 from models.syncnet2 import SyncNet2, SyncNet3, SyncNet4
 from modules import MIMA_DataModule
 from utils import *
-from torchmetrics.classification import BinaryConfusionMatrix, MulticlassConfusionMatrix
+from torchmetrics.classification import BinaryConfusionMatrix, MulticlassF1Score
 
 
 def leave_one_out_cross_validation(config, data_mode:int=0, label_type:int=0):
@@ -20,8 +20,8 @@ def leave_one_out_cross_validation(config, data_mode:int=0, label_type:int=0):
     num_epochs = config.training.num_epochs
     min_epoch = 50
     start_time = datetime.datetime.now().strftime('%m%d_%H%M')
-    # path = 'D:\One_한양대학교\private object minsu\coding\data\EEG_fnirs_cognitive_open\datasetA'
-    path = 'D:/KMS/data/brain_2025'
+    path = 'D:\One_한양대학교\private object minsu\coding\data\EEG_fnirs_cognitive_open'
+    # path = 'D:/KMS/data/brain_2025'
     
     dataset = MIMA_DataModule(path,
                                 data_mode=data_mode,
@@ -42,6 +42,7 @@ def leave_one_out_cross_validation(config, data_mode:int=0, label_type:int=0):
     # targets = np.zeros((num_subj,8)) # labels
     for subj, data_loaders in enumerate(dataset):
         tm = time.time()
+        times = []
         train_loader, val_loader, test_loader = data_loaders
 
 
@@ -78,7 +79,7 @@ def leave_one_out_cross_validation(config, data_mode:int=0, label_type:int=0):
                             num_classes=1).to(DEVICE)
             trainer = train_bin_cls
             tester = test_bin_cls
-
+        times.append(time.time() - tm)
         # es = EarlyStopping(model, patience=10, mode='min')
         es = None
         train_acc, train_loss, val_acc, val_loss = trainer(model, 
@@ -94,16 +95,20 @@ def leave_one_out_cross_validation(config, data_mode:int=0, label_type:int=0):
         tr_loss.append(train_loss)
         vl_acc.append(val_acc)
         vl_loss.append(val_loss)
+        times.append(time.time() - times[-1] - tm)
 
         if es:
             model.load_state_dict(torch.load('best_model.pth'))
         # prune.l1_unstructured(model.classifier.fc[0], name='weight', amount=0.3)
         test_acc, preds, targets = tester(model, tst_loader=test_loader)
+        times.append(time.time() - times[-1] - tm)
         
         if config.model.num_classes > 1:
-            ts_sen.append(88.88)
-            ts_spc.append(88.88)
-            ts_acc.append(test_acc)
+            f1_ = MulticlassF1Score(num_classes=3, average='none')
+            ts_sen.append(list(f1_(torch.from_numpy(preds), torch.from_numpy(targets))))
+
+            f1_ = MulticlassF1Score(num_classes=3, average='micro')
+            ts_acc.append(f1_(torch.from_numpy(preds), torch.from_numpy(targets)) * 100)
         else:
             bcm = BinaryConfusionMatrix()
             cf = bcm(torch.from_numpy(preds), torch.from_numpy(targets))
@@ -111,21 +116,34 @@ def leave_one_out_cross_validation(config, data_mode:int=0, label_type:int=0):
             ts_sen.append(cf[1,1]/(cf[1,1]+cf[1,0]))
             ts_spc.append(cf[0,0]/(cf[0,0]+cf[0,1]))
             ts_acc.append((cf[0,0]+cf[1,1])/(cf[0,0]+cf[0,1]+cf[1,0]+cf[1,1]) * 100)
-
-        print(f'[{subj:0>2}] acc: {ts_acc[-1]:.2f} %,  training acc: {train_acc[-1]:.2f} %,  training loss: {train_loss[-1]:.4f},  avg Acc: {np.mean(ts_acc):.2f} %,  time: {time.time() - tm:.1f}')
+        times.append(time.time() - times[-1] - tm)
+        times.append(sum(times))
+        print(f'[{subj:0>2}] acc: {ts_acc[-1]:.2f} %,  training acc: {train_acc[-1]:.2f} %,  training loss: {train_loss[-1]:.4f},  avg Acc: {np.mean(ts_acc):.2f} %,  time: {[round(t,1) for t in times]}')
         # print(f'[{subj:0>2}] acc: {test_acc} %, training acc: {train_acc[es.epoch]:.2f} %, training loss: {train_loss[es.epoch]:.3f}, val acc: {val_acc[es.epoch]:.2f} %, val loss: {val_loss[es.epoch]:.3f}, es: {es.epoch}')
 
-    print(f'[{data_mode} {label_type}]  avg Acc: {np.mean(ts_acc):.2f} %,  std: {np.std(ts_acc):.2f},  sen: {np.mean(ts_sen)*100:.2f},  spc: {np.mean(ts_spc)*100:.2f}')
+    if config.model.num_classes > 1:
+        ts_sen = np.array(ts_sen)
+        print(f'[{data_mode} {label_type}]  avg Acc: {np.mean(ts_acc):.2f} %,  std: {np.std(ts_acc):.2f},  f1: {np.mean(ts_sen[:,0])*100:.2f}  {np.mean(ts_sen[:,1])*100:.2f}  {np.mean(ts_sen[:,2])*100:.2f}')
+    
+        # print(f'[{data_mode} {label_type}]  avg Acc: {np.mean(ts_acc):.2f} %,  std: {np.std(ts_acc):.2f},  sen0: {np.mean(ts_sen[:,0])*100:.2f},{np.mean(ts_spc[:,0])*100:.2f},' \
+        #       + f'sen1: {np.mean(ts_sen[:,1])*100:.2f},{np.mean(ts_spc[:,1])*100:.2f}, sen1: {np.mean(ts_sen[:,2])*100:.2f},{np.mean(ts_spc[:,2])*100:.2f}')
+    else:
+        print(f'[{data_mode} {label_type}]  avg Acc: {np.mean(ts_acc):.2f} %,  std: {np.std(ts_acc):.2f},  sen: {np.mean(ts_sen)*100:.2f},  spc: {np.mean(ts_spc)*100:.2f}')
     # np.save('ts_acc.npy',ts_acc)
     # print('end')
 
 
 if __name__ == "__main__":
-    for i in range(4):
-        with open(f"yamls/nback{i+1}.yaml", 'r') as f:
-            config_yaml = yaml.load(f, Loader=yaml.FullLoader)
-            config = Box(config_yaml)
-            leave_one_out_cross_validation(config,0,4)
+    with open(f"yamls/nback{9}.yaml", 'r') as f:
+        config_yaml = yaml.load(f, Loader=yaml.FullLoader)
+        config = Box(config_yaml)
+        leave_one_out_cross_validation(config,0,4)
+    # for i in range(8):
+    #     # if i in [0,1]: continue
+    #     with open(f"yamls/nback{i+1}.yaml", 'r') as f:
+    #         config_yaml = yaml.load(f, Loader=yaml.FullLoader)
+    #         config = Box(config_yaml)
+    #         leave_one_out_cross_validation(config,0,4)
     # with open(f"yamls/dsr.yaml", 'r') as f:
     #     config_yaml = yaml.load(f, Loader=yaml.FullLoader)
     #     config = Box(config_yaml)

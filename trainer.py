@@ -312,20 +312,25 @@ def train_bin_cls3(model:nn.Module,
     criterion = nn.CrossEntropyLoss()
     optimizer = OPT_DICT[optimizer_name](model.parameters(), lr=float(learning_rate))
     exlr = opt.lr_scheduler.ExponentialLR(optimizer, gamma=0.99)
-    tr_acc, tr_loss = [], []
+    tr_acc, tr_loss = [0], [0]
     vl_acc, vl_loss = [], []
     tr_correct, tr_total = 0, 0
     vl_correct, vl_total = 0, 0
     early_stopped = False
     # for epoch in tqdm(range(num_epoch), ncols=150):
+    # import time 
     for epoch in range(num_epoch):
         model.train()
+        # tr_correct, tr_total = 0, 0
         trn_loss = 0.0
         for i, data in enumerate(train_loader, 0):
+            # print('start batch')
+            # tm = time.time()
             x, z, y = data
             x = x.to(DEVICE)
             z = z.to(DEVICE)
             y = y.to(DEVICE)
+            # print(f'td: {time.time()-tm}')
             optimizer.zero_grad()
             pred = torch.squeeze(model(x, z))
             # pred = torch.softmax(pred, dim=1)
@@ -333,48 +338,50 @@ def train_bin_cls3(model:nn.Module,
             loss.backward()
             optimizer.step()
 
-            predicted = torch.argmax(pred,1)
+            # if epoch == num_epoch - 1:
+            predicted = torch.argmax(pred, 1)
             tr_total += y.size(0)
             tr_correct += (predicted == y).sum().item()
             trn_loss += loss.item()
         if exlr_on: exlr.step()
+        # if epoch == num_epoch - 1:
         tr_loss.append(round(trn_loss/len(train_loader), 4))
         tr_acc.append(round(100 * tr_correct / tr_total, 4))
 
-        if early_stop:
-            with torch.no_grad():
-                model.eval()
-                val_loss = 0.0
-                # if epoch % 10 == 0:
-                for i, data in enumerate(val_loader, 0):
-                    x, z, y = data
-                    x = x.to(DEVICE)
-                    z = z.to(DEVICE)
-                    y = y.to(DEVICE)
+    #     if early_stop:
+    #         with torch.no_grad():
+    #             model.eval()
+    #             val_loss = 0.0
+    #             # if epoch % 10 == 0:
+    #             for i, data in enumerate(val_loader, 0):
+    #                 x, z, y = data
+    #                 x = x.to(DEVICE)
+    #                 z = z.to(DEVICE)
+    #                 y = y.to(DEVICE)
                     
-                    pred = torch.squeeze(model(x, z))
-                    predicted = (pred > 0.5).int()
-                    vl_total += y.size(0)
-                    vl_correct += (predicted == y).sum().item()
-                    loss = criterion(pred, y.float())
-                    val_loss += loss.item()
+    #                 pred = torch.squeeze(model(x, z))
+    #                 predicted = (pred > 0.5).int()
+    #                 vl_total += y.size(0)
+    #                 vl_correct += (predicted == y).sum().item()
+    #                 loss = criterion(pred, y.float())
+    #                 val_loss += loss.item()
 
-                val_loss = round(val_loss/len(val_loader), 4)
-                val_acc = round(100 * vl_correct / vl_total, 4)
-                vl_loss.append(val_loss)
-                vl_acc.append(val_acc)
+    #             val_loss = round(val_loss/len(val_loader), 4)
+    #             val_acc = round(100 * vl_correct / vl_total, 4)
+    #             vl_loss.append(val_loss)
+    #             vl_acc.append(val_acc)
 
-                if epoch > min_epoch: 
-                    if early_stop.mode == 'min':
-                        early_stop(val_loss, epoch)
-                    else:
-                        early_stop(val_acc, epoch)
-                if early_stop.early_stop:
-                    early_stopped = True
-                    break  
+    #             if epoch > min_epoch: 
+    #                 if early_stop.mode == 'min':
+    #                     early_stop(val_loss, epoch)
+    #                 else:
+    #                     early_stop(val_acc, epoch)
+    #             if early_stop.early_stop:
+    #                 early_stopped = True
+    #                 break  
         
-    if not early_stopped and early_stop:
-        torch.save(model.state_dict(), f'best_model.pth')
+    # if not early_stopped and early_stop:
+    #     torch.save(model.state_dict(), f'best_model.pth')
     return tr_acc, tr_loss, vl_acc, vl_loss
 
 def test_bin_cls3(model:nn.Module, tst_loader:DataLoader):

@@ -2,7 +2,7 @@ import numpy as np
 
 from trainer import *
 from models.stanet import STANet, make_3d_input_for_stanet
-from modules import Emotion_DataModule, MIST_DataModule
+from modules import Emotion_DataModule, MIST_DataModule, MIMA_DataModule
 from utils import *
 from torchmetrics.classification import BinaryConfusionMatrix
 
@@ -69,8 +69,9 @@ def test_bin_cls_(model:nn.Module, tst_loader:DataLoader):
     acc = round(100 * correct / total, 4)
     return acc, preds, targets
 
-def emotion_classification(emotion_dataset, learning_rate, num_epochs):
+def emotion_classification(emotion_dataset, learning_rate, num_epochs, dat_type=0):
     ManualSeed(0)
+    num_classes = 3 if dat_type > 3 else 1
     tr_acc = []
     tr_loss = []
     ts_acc = []
@@ -88,12 +89,12 @@ def emotion_classification(emotion_dataset, learning_rate, num_epochs):
         tester = test_bin_cls_
 
         # es = EarlyStopping(model, patience=10, mode='min')
-        train_acc, train_loss = train_bin_cls_(model, 
-                                                train_loader=train_loader, 
-                                                num_epoch=num_epochs, 
-                                                optimizer_name='Adam',
-                                                learning_rate=str(learning_rate),
-                                                exlr_on=False)
+        train_acc, train_loss = trainer(model, 
+                                        train_loader=train_loader, 
+                                        num_epoch=num_epochs, 
+                                        optimizer_name='Adam',
+                                        learning_rate=str(learning_rate),
+                                        exlr_on=False)
         tr_acc.append(train_acc)
         tr_loss.append(train_loss)
 
@@ -117,11 +118,7 @@ def emotion_classification(emotion_dataset, learning_rate, num_epochs):
     # np.save('ts_acc.npy',ts_acc)
     # print('end')
 
-
-if __name__ == "__main__":
-    # import warnings
-    # warnings.filterwarnings("error", category=RuntimeWarning) # 모든 RuntimeWarning을 예외로 처리
-
+def train_emotion():
     # path = 'D:/One_한양대학교/private object minsu/coding/data/brain_2025'
     path = 'D:/KMS/data/brain_2025'
     emotion_dataset = Emotion_DataModule(path,
@@ -145,3 +142,50 @@ if __name__ == "__main__":
     # 0 (0.001, 50, 16) avg Acc: 60.76 %, std: 11.47, sen: 55.56, spc: 65.97
     # 1 (0.0005, 50, 32) avg Acc: 60.42 %, std: 14.58, sen: 45.14, spc: 75.69
     # print()
+
+def train_stress():
+    # path = 'D:/One_한양대학교/private object minsu/coding/data/brain_2025'
+    path = 'D:/KMS/data/brain_2025'
+    emotion_dataset = MIST_DataModule(path,
+                                        data_mode=0,
+                                        start_point=0,
+                                        window_len=60,
+                                        num_val=0,
+                                        batch_size=16,
+                                        transform_eeg=make_3d_input_for_stanet,
+                                        transform_fnirs=make_3d_input_for_stanet)
+    # for set_ in [(5e-4,100,16),(5e-4,50,32),(5e-4,25,16),(5e-4,50,8),(1e-4,50,16),(1e-4,100,16),(1e-3,50,16),(1e-3,25,16)]:
+    for set_ in [(5e-4,50,32),(5e-4,50,64),(1e-3,50,32),(1e-3,50,64),(5e-3,50,32),(1e-2,50,32)]:
+        print('-'*32, set_)
+        learning_rate, num_epochs, batch_size = set_
+        emotion_dataset.change_batch_size(batch_size)
+        emotion_classification(emotion_dataset, learning_rate, num_epochs)
+
+def train_MIMA(label_type):
+    # path = 'D:/One_한양대학교/private object minsu/coding/data/brain_2025'
+    path = 'D:/KMS/data/brain_2025'
+    dataset = MIMA_DataModule(path,
+                            data_mode=0,
+                            label_type=label_type,
+                            num_val=0,
+                            batch_size=16,
+                            transform_eeg=1,
+                            transform_fnirs=1)
+    
+    for set_ in [(5e-4,100,16),(5e-4,50,32),(5e-4,50,64),(5e-4,50,16),(1e-4,50,32),(1e-4,100,32),(1e-3,50,32),(1e-3,100,32)]:
+    # for set_ in [(5e-4,50,32),(5e-4,50,64),(1e-3,50,32),(1e-3,50,64),(5e-3,50,32),(1e-2,50,32)]:
+        print('-'*32, set_)
+        learning_rate, num_epochs, batch_size = set_
+        dataset.change_batch_size(batch_size)
+        emotion_classification(dataset, learning_rate, num_epochs)
+
+if __name__ == "__main__":
+    # import warnings
+    # warnings.filterwarnings("error", category=RuntimeWarning) # 모든 RuntimeWarning을 예외로 처리
+    # train_stress()
+    train_MIMA(2)
+    train_MIMA(3)
+    train_MIMA(4)
+    # for i in [2,3,4]:
+    #     print('-'*50, i)
+    #     train_MIMA(i)

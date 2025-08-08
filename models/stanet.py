@@ -363,7 +363,8 @@ class STANet(nn.Module):
 
         return the_pred_out, eeg_pred_out, custom_losses
 
-def make_3d_input_for_stanet(sig, dat_type='emotion'):
+def make_3d_input_for_stanet(sig):
+    # eeg_input: (N, 1, T, 16, 16)   fnirs_input: (N, 2, T, 16, 16)
     from scipy.interpolate import griddata
 
     x = np.arange(16)
@@ -371,54 +372,108 @@ def make_3d_input_for_stanet(sig, dat_type='emotion'):
     xx, yy = np.meshgrid(x,y)
     all_points = np.column_stack((xx.ravel(), yy.ravel()))
 
-    if dat_type == 'emotion':
-    # eeg (36, 8, 7, 7680)
-    # fnirs (36, 8, 26, 371)
-    # eeg_input: (N, 1, 600, 16, 16)
-    # fnirs_input: (N, 2, 30, 16, 16)
-        if sig.shape[2] == 7:
-            rg = 7
-            known_point_coordinates = np.array([[15,5],[13,10],[12,5],[8,5],[4,5],[3,10],[1,5]])
-            out = np.zeros((36,8,1,7680,16,16))
-        else:
-            rg = 13
-            known_point_coordinates = np.array([[15,5],[14,12],[14,2],[12,7],[10,12],[10,2],[8,7],[6,12],[6,2],[4,7],[2,12],[2,2],[1,7]])
-            out = np.zeros((36,8,2,371,16,16))
-        unknown_point_coordinates = np.array([coord for coord in all_points if coord.tolist() not in known_point_coordinates.tolist()])
-        unknown_point_coordinates = unknown_point_coordinates.astype(float)
-        for sub in range(36):
-            for tri in range(8):
-                for t in range(sig.shape[-1]):
-                    if rg == 7:
-                        img_2d = np.ones((16, 16))
-                        known_point_values = sig[sub,tri,:,t]
-                        interpol = griddata(points=known_point_coordinates,
-                                            values=known_point_values,
-                                            xi=unknown_point_coordinates,
-                                            fill_value = 0,
-                                            method='cubic')
-                        
-                        for k in range(rg):
-                            img_2d[int(known_point_coordinates[k, 0]), int(known_point_coordinates[k, 1])] = known_point_values[k]
-                        for k in range(256-rg):
-                            img_2d[int(unknown_point_coordinates[k, 0]), int(unknown_point_coordinates[k, 1])] = interpol[k]
-                        out[sub,tri,0,t] = img_2d
-                    else:
-                        for a,b,c in [(0,0,13),(1,13,26)]:
-                            img_2d = np.ones((16, 16))
-                            known_point_values = sig[sub,tri,b:c,t]
-                            interpol = griddata(points=known_point_coordinates,
-                                                values=known_point_values,
-                                                xi=unknown_point_coordinates,
-                                                fill_value = 0,
-                                                method='cubic')
-                            
-                            for k in range(rg):
-                                img_2d[int(known_point_coordinates[k, 0]), int(known_point_coordinates[k, 1])] = known_point_values[k]
-                            for k in range(256-rg):
-                                img_2d[int(unknown_point_coordinates[k, 0]), int(unknown_point_coordinates[k, 1])] = interpol[k]
-                            out[sub,tri,a,t] = img_2d
-    np.save(f'out{rg}.npy',out)
+    if sig.shape[2] == 7: # eeg1 (36, 8, 7, 7680), (35, 2, 7, 7680)
+        num_chan, num_k = 7, 1
+        known_point_coordinates = np.array([[15,5],[13,10],[12,5],[8,5],[4,5],[3,10],[1,5]])
+    elif sig.shape[2] == 26: # fnirs1 (36, 8, 26, 371), (35, 2, 26, 371)
+        num_chan, num_k = 13, 2
+        known_point_coordinates = np.array([[15,5],[14,12],[14,2],[12,7],[10,12],[10,2],[8,7],[6,12],[6,2],[4,7],[2,12],[2,2],[1,7]])
+    elif sig.shape[2] == 28: # eeg2 (26, 60, 28, 2000), (26, 36, 28, 4000), (26, 27, 28, 8000)
+        num_chan, num_k = 28, 1
+        known_point_coordinates = np.array([[0., 6.], #Fp1
+                                        [2., 5.], #AFF5h
+                                        [2., 8.], #AFz
+                                        [3., 7.], #F1
+                                        [5., 2.], #FC5
+                                        [5., 6.], #FC1
+                                        [7., 1.], #T7
+                                        [7., 4.], #C3
+                                        [7., 8.], #Cz
+                                        [9., 2.], #CP5
+                                        [9., 6.], #CP1
+                                        [11., 2.], #P7
+                                        [11., 5.], #P3
+                                        [11., 8.], #Pz
+                                        [13., 8.], #POz
+                                        [14., 6.], #O1
+                                        [0., 10.], #Fp2
+                                        [2., 11.], #AFF6h
+                                        [3., 9.], #F2
+                                        [5., 10.], #FC2
+                                        [5., 14.], #FC6
+                                        [7., 12.], #C4
+                                        [7., 15.], #T8
+                                        [9., 10.], #CP2
+                                        [9., 14.], #CP6
+                                        [11., 11.], #P4
+                                        [11., 14.], #P8
+                                        [14., 10.] #O2
+                                        ])
+    elif sig.shape[2] == 72: # fnirs2 (26, 60, 72, 100), (26, 36, 72, 200), (26, 27, 72, 400)
+        num_chan, num_k = 36, 2
+        known_point_coordinates = np.array([[2., 4.], #AF7
+                                          [3., 4.], #AFF5
+                                          [1., 5.], #AFp7
+                                          [2., 5.], #AF5h
+                                          [1., 7.], #AFp3
+                                          [3., 6.], #AFF3h
+                                          [2., 7.], #AF1
+                                          [3., 8.], #AFFz
+                                          [1., 8.], #AFpz
+                                          [2., 9.], #AF2
+                                          [1., 9.], #AFp4
+                                          [6., 4.], #FCC3
+                                          [7., 5.], #C3h
+                                          [7., 3.], #C5h
+                                          [8., 4.], #CCP3
+                                          [10., 5.], #CPP3
+                                          [11., 6.], #P3h
+                                          [11., 4.], #P5h
+                                          [12., 5.], #PPO3
+                                          [3., 10.], #AFF4h
+                                          [2., 11.], #AF6h
+                                          [3., 12.], #AFF6
+                                          [1., 11.], #AFp8
+                                          [2., 12.], #AF8
+                                          [6., 12.], #FCC4
+                                          [7., 13.], #C6h
+                                          [7., 11.], #C4h
+                                          [8., 12.], #CCP4
+                                          [10., 11.], #CPP4
+                                          [11., 12.], #P6h
+                                          [11., 10.], #P4h
+                                          [12., 11.], #PPO4
+                                          [12., 8.], #PPOz
+                                          [13., 7.], #PO1
+                                          [13., 9.], #PO2
+                                          [14., 8.] #POOz
+                                        ])
+
+    out = np.zeros((sig.shape[0], sig.shape[1], num_k, sig.shape[-1], 16, 16))
+
+    unknown_point_coordinates = np.array([coord for coord in all_points if coord.tolist() not in known_point_coordinates.tolist()])
+    unknown_point_coordinates = unknown_point_coordinates.astype(float)
+    for sub in range(out.shape[0]):
+        for tri in range(out.shape[1]):
+            for t in range(sig.shape[-1]):
+                for a,b,c in [(0,0,num_chan),(1,num_chan,num_chan*2)]:
+                    if num_k == 1 and a == 1: 
+                        break
+                    img_2d = np.ones((16, 16))
+                    known_point_values = sig[sub,tri,b:c,t]
+                    interpol = griddata(points=known_point_coordinates,
+                                        values=known_point_values,
+                                        xi=unknown_point_coordinates,
+                                        fill_value = 0,
+                                        method='cubic')
+                    
+                    for k in range(num_chan):
+                        img_2d[int(known_point_coordinates[k, 0]), int(known_point_coordinates[k, 1])] = known_point_values[k]
+                    for k in range(256-num_chan):
+                        img_2d[int(unknown_point_coordinates[k, 0]), int(unknown_point_coordinates[k, 1])] = interpol[k]
+                    out[sub,tri,a,t] = img_2d
+
+    np.save(f'out{num_chan}_{sig.shape[-1]}.npy',out)
     return out
 
 if __name__ == '__main__':

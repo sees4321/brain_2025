@@ -83,6 +83,7 @@ class EEGNet(nn.Module):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
     def forward(self, x, return_feat=False):
+        x = x.unsqueeze(1)
         out = self.block1(x)
         out = self.block2(out)
         feat = torch.flatten(out,1)

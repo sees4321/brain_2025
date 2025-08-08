@@ -50,10 +50,10 @@ class TransformerClassifier(nn.Module):
         self.fc = nn.Sequential(
             # nn.Dropout(0.3),
             nn.Linear(input_dim*num_segments, num_classes),
-            #nn.Sigmoid() if num_classes == 1 else nn.LogSoftmax(dim=1)
+            nn.Sigmoid() if num_classes == 1 else nn.LogSoftmax(dim=1)
         )
-        if num_classes == 1:
-            self.fc.add_module('sigmoid',nn.Sigmoid())
+        # if num_classes == 1:
+        #     self.fc.add_module('sigmoid',nn.Sigmoid())
     
     def forward(self, x):
         # x shape: (batch, tokens, embed_dim)

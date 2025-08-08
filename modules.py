@@ -73,12 +73,16 @@ class Emotion_DataModule():
         self.data_shape_eeg = list(self.eeg.shape[-2:])
         self.data_shape_fnirs = list(self.fnirs.shape[-2:])
 
-        self.eeg = np.load('out7.npy')
-        self.fnirs = np.load('out13.npy')
-        # if transform_eeg:
-        #     self.eeg = transform_eeg(self.eeg)
-        # if transform_fnirs:
-        #     self.fnirs = transform_fnirs(self.fnirs)
+        if transform_eeg:
+            if transform_eeg == 1:
+                self.eeg = np.load(f'{path}/sta_emotion_eeg.npy')
+            else: 
+                self.eeg = transform_eeg(self.eeg)
+        if transform_fnirs:
+            if transform_fnirs == 1:
+                self.eeg = np.load(f'{path}/sta_emotion_fnirs.npy')
+            else:
+                self.fnirs = transform_fnirs(self.fnirs)
     
     def __len__(self):
         return self.subjects
@@ -201,9 +205,15 @@ class MIST_DataModule():
         self.data_shape_fnirs = list(self.fnirs.shape[-2:])
 
         if transform_eeg:
-            self.eeg = transform_eeg(self.eeg)
+            if transform_eeg == 1:
+                self.eeg = np.load(f'{path}/sta_mist_eeg.npy')
+            else:
+                self.eeg = transform_eeg(self.eeg)
         if transform_fnirs:
-            self.fnirs = transform_fnirs(self.fnirs)
+            if transform_fnirs == 1:
+                self.eeg = np.load(f'{path}/sta_mist_fnirs.npy')
+            else:
+                self.fnirs = transform_fnirs(self.fnirs)
     
     def __len__(self):
         return self.subjects
@@ -261,6 +271,9 @@ class MIST_DataModule():
         subj = [i for i in self.subjects if i != self.subjects[self.test_idx]]
         random.shuffle(subj)
         return subj[self.num_val:], subj[:self.num_val]
+    
+    def change_batch_size(self, num_batch):
+        self.batch_size = num_batch
 
 class Stroop_DataModule():
     r'''
@@ -423,9 +436,16 @@ class MIMA_DataModule():
         self.data_shape_fnirs = list(self.fnirs.shape[-2:])
 
         if transform_eeg:
-            self.eeg = transform_eeg(self.eeg)
+            if transform_eeg == 1:
+                self.eeg = np.load(f'{path}/sta_{label_type}_eeg.npy')
+            else:
+                self.eeg = transform_eeg(self.eeg)
         if transform_fnirs:
-            self.fnirs = transform_fnirs(self.fnirs)
+            
+            if transform_fnirs == 1:
+                self.eeg = np.load(f'{path}/sta_{label_type}_fnirs.npy')
+            else:
+                self.fnirs = transform_fnirs(self.fnirs)
     
     def __len__(self):
         return self.subjects
@@ -470,6 +490,9 @@ class MIMA_DataModule():
         subj = [i for i in self.subjects if i != self.subjects[self.test_idx]]
         random.shuffle(subj)
         return subj[self.num_val:], subj[:self.num_val]
+    
+    def change_batch_size(self, num_batch):
+        self.batch_size = num_batch
 
 if __name__ == '__main__':
     # emotion_dataset = Emotion_DataModule('D:/One_한양대학교/private object minsu/coding/data/brain_2025',

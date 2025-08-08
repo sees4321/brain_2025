@@ -196,3 +196,28 @@ class EarlyStopping:
             # Continue
             self.early_stop = False
 
+def plot_confusion_matrix(cf:np.ndarray, cls_names:list):
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+    cf = cf[::-1,::-1]
+    n_classes = len(cls_names)
+    cf_percent = cf.astype('float') / cf.sum(axis=1)[:, np.newaxis]
+    labels = (np.asarray(["{0:d}\n({1:.2%})".format(value, P_value)
+                      for value, P_value in zip(cf.flatten(),
+                                                cf_percent.flatten())])
+          ).reshape(n_classes, n_classes)
+    plt.figure(figsize=(n_classes+4.5, n_classes+3))
+    sns.set(font_scale=1.2)
+    heatmap = sns.heatmap(cf, annot=labels, fmt='', cmap='Blues', cbar=True, #YlGnBu
+                          annot_kws={"size": 14})
+
+    heatmap.set_xlabel('Predicted Label', fontsize=14, labelpad=10)
+    heatmap.set_ylabel('True Label', fontsize=14, labelpad=10)
+    heatmap.set_title('Confusion Matrix', fontsize=16, pad=20)
+
+    heatmap.set_xticklabels(cls_names)
+    heatmap.set_yticklabels(cls_names, rotation=0)
+
+    plt.tight_layout()
+    plt.savefig('multi_class_confusion_matrix.png', dpi=300)
+    plt.show()

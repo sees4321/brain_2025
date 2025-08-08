@@ -24,9 +24,9 @@ from torchmetrics.classification import BinaryConfusionMatrix
 def leave_one_out_cross_validation(label_type:int=0, data_mode:int=0):
     ManualSeed(0)
     learning_rate = 5e-4
-    num_batch = 16
-    num_epochs = 30
-    min_epoch = num_epochs
+    num_batch = 32
+    num_epochs = 50
+    min_epoch = 50
     time = datetime.datetime.now().strftime('%m%d_%H%M')
     # path = 'D:/One_한양대학교/private object minsu/coding/data/brain_2025'
     path = 'D:/KMS/data/brain_2025'
@@ -40,7 +40,7 @@ def leave_one_out_cross_validation(label_type:int=0, data_mode:int=0):
                                          num_val=0,
                                          batch_size=num_batch,
                                          transform_eeg=None,
-                                         transform_fnirs=divide_ab)
+                                         transform_fnirs=None)
     
     # config = Config(
     #     eeg_channels=emotion_dataset.eeg.shape[2],
@@ -60,6 +60,7 @@ def leave_one_out_cross_validation(label_type:int=0, data_mode:int=0):
     ts_spc = []
     # preds = np.zeros((num_subj,8)) # model predictions
     # targets = np.zeros((num_subj,8)) # labels
+    cf_out = np.zeros((2,2),int)
     for subj, data_loaders in enumerate(emotion_dataset):
         train_loader, val_loader, test_loader = data_loaders
 
@@ -81,7 +82,7 @@ def leave_one_out_cross_validation(label_type:int=0, data_mode:int=0):
         if data_mode == 0:
             model = SyncNet4(emotion_dataset.data_shape_eeg, 
                             emotion_dataset.data_shape_fnirs, 
-                            num_segments=20,
+                            num_segments=12,
                             embed_dim=256,
                             num_heads=4,
                             num_layers=2,
@@ -125,7 +126,7 @@ def leave_one_out_cross_validation(label_type:int=0, data_mode:int=0):
         vl_acc.append(val_acc)
         vl_loss.append(val_loss)
 
-        model.load_state_dict(torch.load('best_model.pth'))
+        # model.load_state_dict(torch.load('best_model.pth'))
         # prune.l1_unstructured(model.classifer[0], name='weight', amount=0.3)
         test_acc, preds, targets = tester(model, tst_loader=test_loader)
         ts_acc.append(test_acc)
@@ -135,6 +136,7 @@ def leave_one_out_cross_validation(label_type:int=0, data_mode:int=0):
         # cf = bcm(torch.from_numpy(np.argmax(preds,1)), torch.from_numpy(targets))
         ts_sen.append(cf[1,1]/(cf[1,1]+cf[1,0]))
         ts_spc.append(cf[0,0]/(cf[0,0]+cf[0,1]))
+        cf_out += cf.numpy()
 
         print(f'[{subj:0>2}] acc: {test_acc} %, training acc: {train_acc[-1]:.2f} %, training loss: {train_loss[-1]:.3f}')
         # print(f'[{subj:0>2}] acc: {test_acc} %, training acc: {train_acc[es.epoch]:.2f} %, training loss: {train_loss[es.epoch]:.3f}, val acc: {val_acc[es.epoch]:.2f} %, val loss: {val_loss[es.epoch]:.3f}, es: {es.epoch}')
@@ -142,11 +144,14 @@ def leave_one_out_cross_validation(label_type:int=0, data_mode:int=0):
     print(f'avg Acc: {np.mean(ts_acc):.2f} %, std: {np.std(ts_acc):.2f}, sen: {np.mean(ts_sen)*100:.2f}, spc: {np.mean(ts_spc)*100:.2f}')
     # np.save('ts_acc.npy',ts_acc)
     # print('end')
-
+    cls_names = ['Positive','Negative'] if label_type == 1 else ['High', 'Low']
+    plot_confusion_matrix(cf_out,cls_names)
 
 if __name__ == "__main__":
     # for i in range(0,1):
-    i = 2
-    leave_one_out_cross_validation(1,i)
-    leave_one_out_cross_validation(0,i)
-    print()
+    i = 0
+    # leave_one_out_cross_validation(0,i)
+    # leave_one_out_cross_validation(1,i)
+    # print()
+    plot_confusion_matrix(np.array([[126,18],[22,122]],int),['High', 'Low'])
+    plot_confusion_matrix(np.array([[124,20],[24,120]],int),['Positive', 'Negative'])

@@ -22,8 +22,8 @@ from torchmetrics.classification import BinaryConfusionMatrix
 
 def leave_one_out_cross_validation(data_mode:int=0):
     ManualSeed(0) 
-    learning_rate = 1e-3
-    num_batch = 8
+    learning_rate = 5e-4
+    num_batch = 16
     num_epochs = 50
     min_epoch = 50
     time = datetime.datetime.now().strftime('%m%d_%H%M')
@@ -67,6 +67,7 @@ def leave_one_out_cross_validation(data_mode:int=0):
     ts_spc = []
     # preds = np.zeros((num_subj,8)) # model predictions
     # targets = np.zeros((num_subj,8)) # labels
+    cf_out = np.zeros((2,2),int)
     for subj, data_loaders in enumerate(emotion_dataset):
         train_loader, val_loader, test_loader = data_loaders
 
@@ -86,18 +87,18 @@ def leave_one_out_cross_validation(data_mode:int=0):
         # model = Bimodal_attn_model(HiRENet3(emb_dim=dim), EEGNet_fNIRS3(emb_dim=dim), 1).to(DEVICE)
 
         if data_mode == 0:
-            # model = SyncNet2(emotion_dataset.data_shape_eeg, 
-            #                 emotion_dataset.data_shape_fnirs, 
-            #                 num_segments=20,
-            #                 embed_dim=256,
-            #                 num_heads=4,
-            #                 num_layers=2,
-            #                 use_lstm=False,
-            #                 num_groups=4,
-            #                 actv_mode="elu",
-            #                 pool_mode="max", 
-            #                 num_classes=1).to(DEVICE)
-            model = BimodalNet(config).to(DEVICE)
+            model = SyncNet2(emotion_dataset.data_shape_eeg, 
+                            emotion_dataset.data_shape_fnirs, 
+                            num_segments=20,
+                            embed_dim=256,
+                            num_heads=4,
+                            num_layers=2,
+                            use_lstm=False,
+                            num_groups=4,
+                            actv_mode="elu",
+                            pool_mode="max", 
+                            num_classes=1).to(DEVICE)
+            # model = BimodalNet(config).to(DEVICE)
             trainer = train_bin_cls2
             tester = test_bin_cls2
         else:
@@ -142,6 +143,7 @@ def leave_one_out_cross_validation(data_mode:int=0):
         # cf = bcm(torch.from_numpy(np.argmax(preds,1)), torch.from_numpy(targets))
         ts_sen.append(cf[1,1]/(cf[1,1]+cf[1,0]))
         ts_spc.append(cf[0,0]/(cf[0,0]+cf[0,1]))
+        cf_out += cf.numpy()
 
         print(f'[{subj:0>2}] acc: {test_acc} %, training acc: {train_acc[-1]:.2f} %, training loss: {train_loss[-1]:.3f}')
         # print(f'[{subj:0>2}] acc: {test_acc} %, training acc: {train_acc[es.epoch]:.2f} %, training loss: {train_loss[es.epoch]:.3f}, val acc: {val_acc[es.epoch]:.2f} %, val loss: {val_loss[es.epoch]:.3f}, es: {es.epoch}')
@@ -149,6 +151,7 @@ def leave_one_out_cross_validation(data_mode:int=0):
     print(f'avg Acc: {np.mean(ts_acc):.2f} %, std: {np.std(ts_acc):.2f}, sen: {np.mean(ts_sen)*100:.2f}, spc: {np.mean(ts_spc)*100:.2f}')
     # np.save('ts_acc.npy',ts_acc)
     # print('end')
+    plot_confusion_matrix(cf_out,['High','Low'])
 
 
 if __name__ == "__main__":

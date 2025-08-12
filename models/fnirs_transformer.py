@@ -240,9 +240,10 @@ class fNIRS_PreT(nn.Module):
         x = self.fNIRS_T(img)
         return x
 
-def divide_ab(sig, i=36):
+def divide_ab(sig): # 13 36
     # 32 8 26 371
     import numpy as np
+    i = sig.shape[-2] // 2
     sig = np.stack([sig[:,:,:i],sig[:,:,i:]],2)
     return sig
 

@@ -8,7 +8,8 @@ def segment_data(data:torch.Tensor, num_seg = 12):
     end = data.size(-1)
     segment_length = ceil(end/num_seg)
     if end % segment_length != 0:
-        end = (end // segment_length + 1) * segment_length
+        # end = (end // segment_length + 1) * segment_length
+        end = num_seg * segment_length
     data = F.pad(data, (0,(end-data.size(-1))), mode='replicate')
     segments = []
     for i in range(0, end, segment_length):

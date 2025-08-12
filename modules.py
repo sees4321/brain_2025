@@ -80,7 +80,7 @@ class Emotion_DataModule():
                 self.eeg = transform_eeg(self.eeg)
         if transform_fnirs:
             if transform_fnirs == 1:
-                self.eeg = np.load(f'{path}/sta_emotion_fnirs.npy')
+                self.fnirs = np.load(f'{path}/sta_emotion_fnirs.npy')
             else:
                 self.fnirs = transform_fnirs(self.fnirs)
     
@@ -117,11 +117,11 @@ class Emotion_DataModule():
     
     def create_dataloader(self, eeg, fnirs, label, shuffle=False):
         if self.data_mode == 0:
-            return DataLoader(BimodalDataSet(eeg, fnirs, label), self.batch_size, shuffle=shuffle, pin_memory=True, pin_memory_device=DEVICE)
+            return DataLoader(BimodalDataSet(eeg, fnirs, label), self.batch_size, shuffle=shuffle, pin_memory=True)#, pin_memory_device=DEVICE)
         elif self.data_mode == 1:
-            return DataLoader(CustomDataSet(eeg, label), self.batch_size, shuffle=shuffle, pin_memory=True, pin_memory_device=DEVICE)
+            return DataLoader(CustomDataSet(eeg, label), self.batch_size, shuffle=shuffle, pin_memory=True)#, pin_memory_device=DEVICE)
         elif self.data_mode == 2:
-            return DataLoader(CustomDataSet(fnirs, label), self.batch_size, shuffle=shuffle, pin_memory=True, pin_memory_device=DEVICE)
+            return DataLoader(CustomDataSet(fnirs, label), self.batch_size, shuffle=shuffle, pin_memory=True)#, pin_memory_device=DEVICE)
     
     def window_slicing(self, arr, start_point, window_len, total_sec):
         total_len = arr.shape[-1]
@@ -211,7 +211,7 @@ class MIST_DataModule():
                 self.eeg = transform_eeg(self.eeg)
         if transform_fnirs:
             if transform_fnirs == 1:
-                self.eeg = np.load(f'{path}/sta_mist_fnirs.npy')
+                self.fnirs = np.load(f'{path}/sta_mist_fnirs.npy')
             else:
                 self.fnirs = transform_fnirs(self.fnirs)
     
@@ -441,9 +441,8 @@ class MIMA_DataModule():
             else:
                 self.eeg = transform_eeg(self.eeg)
         if transform_fnirs:
-            
             if transform_fnirs == 1:
-                self.eeg = np.load(f'{path}/sta_{label_type}_fnirs.npy')
+                self.fnirs = np.load(f'{path}/sta_{label_type}_fnirs.npy')
             else:
                 self.fnirs = transform_fnirs(self.fnirs)
     

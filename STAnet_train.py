@@ -4,7 +4,70 @@ from trainer import *
 from models.stanet import STANet, make_3d_input_for_stanet
 from modules import Emotion_DataModule, MIST_DataModule, MIMA_DataModule
 from utils import *
-from torchmetrics.classification import BinaryConfusionMatrix
+from torchmetrics.classification import BinaryConfusionMatrix, MulticlassF1Score
+
+def train_mc_cls_(model:nn.Module, 
+                train_loader:DataLoader, 
+                num_epoch:int, 
+                optimizer_name:str, 
+                learning_rate:str, 
+                exlr_on:bool = False,
+                **kwargs):
+    criterion = nn.CrossEntropyLoss()
+    optimizer = OPT_DICT[optimizer_name](model.parameters(), lr=float(learning_rate))
+    exlr = opt.lr_scheduler.ExponentialLR(optimizer, gamma=0.99)
+    tr_acc, tr_loss = [], []
+    tr_correct, tr_total = 0, 0
+    early_stopped = False
+    # for epoch in tqdm(range(num_epoch), ncols=150):
+    for epoch in range(num_epoch):
+        model.train()
+        trn_loss = 0.0
+        for i, data in enumerate(train_loader, 0):
+            x, z, y = data
+            x = x.to(DEVICE)
+            z = z.to(DEVICE)
+            y = y.to(DEVICE)
+            optimizer.zero_grad()
+            
+            pred, _, ls = model(x,z)
+            pred = torch.squeeze(pred)
+            loss = criterion(pred, y) + ls
+            loss.backward()
+            optimizer.step()
+
+            predicted = torch.argmax(pred, 1)
+            tr_total += y.size(0)
+            tr_correct += (predicted == y).sum().item()
+            trn_loss += loss.item()
+        if exlr_on: exlr.step()
+        tr_loss.append(round(trn_loss/len(train_loader), 4))
+        tr_acc.append(round(100 * tr_correct / tr_total, 4))
+        
+    # if not early_stopped:
+    #     torch.save(model.state_dict(), f'best_model.pth')
+    return tr_acc, tr_loss
+
+def test_mc_cls_(model:nn.Module, tst_loader:DataLoader):
+    total = 0
+    correct = 0
+    preds = np.array([])
+    targets = np.array([])
+    with torch.no_grad():
+        model.eval()
+        for x, z, y in tst_loader:
+            x = x.to(DEVICE)
+            z = z.to(DEVICE)
+            y = y.to(DEVICE)
+            pred, _, _ = model(x,z)
+            pred = torch.squeeze(pred)
+            predicted = torch.argmax(pred,1)
+            correct += (predicted==y).sum().item()
+            total += y.size(0)
+            preds = np.append(preds,predicted.to('cpu').numpy())
+            targets = np.append(targets,y.to('cpu').numpy())
+    acc = round(100 * correct / total, 4)
+    return acc, preds, targets
 
 def train_bin_cls_(model:nn.Module, 
                 train_loader:DataLoader, 
@@ -69,9 +132,9 @@ def test_bin_cls_(model:nn.Module, tst_loader:DataLoader):
     acc = round(100 * correct / total, 4)
     return acc, preds, targets
 
-def emotion_classification(emotion_dataset, learning_rate, num_epochs, dat_type=0):
+def emotion_classification(emotion_dataset, learning_rate, num_epochs, lab_type=0):
     ManualSeed(0)
-    num_classes = 3 if dat_type > 3 else 1
+    num_classes = 3 if lab_type > 3 else 1
     tr_acc = []
     tr_loss = []
     ts_acc = []
@@ -79,14 +142,21 @@ def emotion_classification(emotion_dataset, learning_rate, num_epochs, dat_type=
     ts_spc = []
     # preds = np.zeros((num_subj,8)) # model predictions
     # targets = np.zeros((num_subj,8)) # labels
+    if num_classes < 3:
+        cf_size = 2
+        trainer = train_bin_cls_
+        tester = test_bin_cls_
+    else:
+        cf_size = 3
+        trainer = train_mc_cls_
+        tester = test_mc_cls_
+
+    cf_out = np.zeros((cf_size,cf_size), int)
     emotion_dataset.test_idx = 0
     for subj, data_loaders in enumerate(emotion_dataset):
         train_loader, val_loader, test_loader = data_loaders
 
-        model = STANet().to(DEVICE)
-
-        trainer = train_bin_cls_
-        tester = test_bin_cls_
+        model = STANet(num_classes).to(DEVICE)
 
         # es = EarlyStopping(model, patience=10, mode='min')
         train_acc, train_loss = trainer(model, 
@@ -103,18 +173,29 @@ def emotion_classification(emotion_dataset, learning_rate, num_epochs, dat_type=
         test_acc, preds, targets = tester(model, tst_loader=test_loader)
         ts_acc.append(test_acc)
 
-        bcm = BinaryConfusionMatrix()
-        cf = bcm(torch.from_numpy(preds), torch.from_numpy(targets))
-        # cf = bcm(torch.from_numpy(np.argmax(preds,1)), torch.from_numpy(targets))
-        ts_sen.append(cf[1,1]/(cf[1,1]+cf[1,0]))
-        ts_spc.append(cf[0,0]/(cf[0,0]+cf[0,1]))
+        if num_classes == 1:
+            bcm = BinaryConfusionMatrix()
+            cf = bcm(torch.from_numpy(preds), torch.from_numpy(targets))
+            # cf = bcm(torch.from_numpy(np.argmax(preds,1)), torch.from_numpy(targets))
+            ts_sen.append(cf[1,1]/(cf[1,1]+cf[1,0]))
+            ts_spc.append(cf[0,0]/(cf[0,0]+cf[0,1]))
+        else:
+            f1_ = MulticlassF1Score(num_classes=3, average='none')
+            ts_sen.append(list(f1_(torch.from_numpy(preds), torch.from_numpy(targets))))
+
+            f1_ = MulticlassF1Score(num_classes=3, average='micro')
+            ts_acc.append(f1_(torch.from_numpy(preds), torch.from_numpy(targets)) * 100)
 
         # print(f'[{subj:0>2}] acc: {test_acc} %, training acc: {train_acc[-1]:.2f} %, training loss: {train_loss[-1]:.3f}')
         # print(f'[{subj:0>2}] acc: {test_acc} %, training acc: {train_acc[es.epoch]:.2f} %, training loss: {train_loss[es.epoch]:.3f}, val acc: {val_acc[es.epoch]:.2f} %, val loss: {val_loss[es.epoch]:.3f}, es: {es.epoch}')
 
     tr_acc, tr_loss = np.array(tr_acc), np.array(tr_loss)
     print(f'trn Acc: {np.mean(tr_acc[:,-1]):.2f} %, trn loss: {np.std(tr_loss[:,-1]):.3f}')
-    print(f'avg Acc: {np.mean(ts_acc):.2f} %, std: {np.std(ts_acc):.2f}, sen: {np.mean(ts_sen)*100:.2f}, spc: {np.mean(ts_spc)*100:.2f}')
+    if num_classes == 1:
+        print(f'avg Acc: {np.mean(ts_acc):.2f} %, std: {np.std(ts_acc):.2f}, sen: {np.mean(ts_sen)*100:.2f}, spc: {np.mean(ts_spc)*100:.2f}')
+    else: 
+        ts_sen = np.array(ts_sen)
+        print(f'avg Acc: {np.mean(ts_acc):.2f} %, std: {np.std(ts_acc):.2f}, f1: {np.mean(ts_sen[:][0])*100:.2f}  {np.mean(ts_sen[:][1])*100:.2f}  {np.mean(ts_sen[:][2])*100:.2f}')
     # np.save('ts_acc.npy',ts_acc)
     # print('end')
 
@@ -152,10 +233,10 @@ def train_stress():
                                         window_len=60,
                                         num_val=0,
                                         batch_size=16,
-                                        transform_eeg=make_3d_input_for_stanet,
-                                        transform_fnirs=make_3d_input_for_stanet)
-    # for set_ in [(5e-4,100,16),(5e-4,50,32),(5e-4,25,16),(5e-4,50,8),(1e-4,50,16),(1e-4,100,16),(1e-3,50,16),(1e-3,25,16)]:
-    for set_ in [(5e-4,50,32),(5e-4,50,64),(1e-3,50,32),(1e-3,50,64),(5e-3,50,32),(1e-2,50,32)]:
+                                        transform_eeg=1,
+                                        transform_fnirs=1)
+    for set_ in [(5e-4,100,16),(5e-4,50,32),(5e-4,50,64),(5e-4,50,16),(1e-4,50,32),(1e-4,100,32),(1e-3,50,32),(1e-3,100,32)]:
+    # for set_ in [(5e-4,50,32),(5e-4,50,64),(1e-3,50,32),(1e-3,50,64),(5e-3,50,32),(1e-2,50,32)]:
         print('-'*32, set_)
         learning_rate, num_epochs, batch_size = set_
         emotion_dataset.change_batch_size(batch_size)
@@ -177,15 +258,15 @@ def train_MIMA(label_type):
         print('-'*32, set_)
         learning_rate, num_epochs, batch_size = set_
         dataset.change_batch_size(batch_size)
-        emotion_classification(dataset, learning_rate, num_epochs)
+        emotion_classification(dataset, learning_rate, num_epochs, label_type)
 
 if __name__ == "__main__":
     # import warnings
     # warnings.filterwarnings("error", category=RuntimeWarning) # 모든 RuntimeWarning을 예외로 처리
-    # train_stress()
-    train_MIMA(2)
-    train_MIMA(3)
-    train_MIMA(4)
+    train_stress()
+    # train_MIMA(2)
+    # train_MIMA(3)
+    # train_MIMA(4)
     # for i in [2,3,4]:
     #     print('-'*50, i)
     #     train_MIMA(i)

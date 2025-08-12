@@ -181,7 +181,10 @@ if __name__ == "__main__":
         for label_type in [2,3]:
             print('-'*32 + str(i) + str(label_type))
             leave_one_out_cross_validation(dat_type[i], label_type)
-
+    for set_ in [(5e-4,100,16),(5e-4,50,32),(5e-4,50,64),(5e-4,50,16),(1e-4,50,32),(1e-4,100,32),(1e-3,50,32),(1e-3,100,32)]:
+        print('-'*32, set_)
+        learning_rate, num_epochs, batch_size = set_
+        leave_one_out_cross_validation(dat_type, 2)
     # for i, v in enumerate(['wg','dsr','nback']):
     #     for dat_type in [0,1,2]:
     #         leave_one_out_cross_validation(dat_type,i+2)

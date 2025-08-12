@@ -5,7 +5,7 @@ import torch.nn.utils.prune as prune
 
 from trainer import *
 from models.syncnet import SyncNet
-from models.syncnet2 import SyncNet2, SyncNet3, SyncNet4
+from models.syncnet2 import SyncNet2, SyncNet3, SyncNet4, SyncNet_ablation
 from models.eegnet import EEGNet
 from models.shallowfbcspnet import ShallowFBCSPNet
 from models.deep4net import Deep4Net
@@ -27,8 +27,8 @@ def leave_one_out_cross_validation(data_mode:int=0):
     num_epochs = 50
     min_epoch = 50
     time = datetime.datetime.now().strftime('%m%d_%H%M')
-    # path = 'D:/One_한양대학교/private object minsu/coding/data/brain_2025'
-    path = 'D:/KMS/data/brain_2025'
+    path = 'D:/One_한양대학교/private object minsu/coding/data/brain_2025'
+    # path = 'D:/KMS/data/brain_2025'
 
     # emotion_dataset = Emotion_DataModule(path,
     #                                      data_mode=data_mode,
@@ -98,6 +98,8 @@ def leave_one_out_cross_validation(data_mode:int=0):
                             actv_mode="elu",
                             pool_mode="max", 
                             num_classes=1).to(DEVICE)
+            # model = SyncNet_ablation(emotion_dataset.data_shape_eeg, 
+            #                          emotion_dataset.data_shape_fnirs).to(DEVICE)
             # model = BimodalNet(config).to(DEVICE)
             trainer = train_bin_cls2
             tester = test_bin_cls2

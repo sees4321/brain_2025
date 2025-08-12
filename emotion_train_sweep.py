@@ -2,6 +2,7 @@ import numpy as np
 
 from trainer import *
 from models.stanet import STANet, make_3d_input_for_stanet
+from models.syncnet2 import SyncNet3
 from modules import Emotion_DataModule, MIST_DataModule, MIMA_DataModule
 from utils import *
 from torchmetrics.classification import BinaryConfusionMatrix
@@ -12,7 +13,6 @@ def train_bin_cls_(model:nn.Module,
                 optimizer_name:str, 
                 learning_rate:str, 
                 exlr_on:bool = False,
-                verbose_time:bool = False,
                 **kwargs):
     criterion = nn.BCELoss()
     optimizer = OPT_DICT[optimizer_name](model.parameters(), lr=float(learning_rate))
@@ -21,23 +21,20 @@ def train_bin_cls_(model:nn.Module,
     tr_correct, tr_total = 0, 0
     early_stopped = False
     # for epoch in tqdm(range(num_epoch), ncols=150):
-    time_total = []
-    start = torch.cuda.Event(enable_timing=True)
-    end = torch.cuda.Event(enable_timing=True)
     for epoch in range(num_epoch):
         model.train()
         trn_loss = 0.0
-        start.record()
         for i, data in enumerate(train_loader, 0):
-            x, z, y = data
+            x, y = data
+            # x, z, y = data
             x = x.to(DEVICE)
-            z = z.to(DEVICE)
+            # z = z.to(DEVICE)
             y = y.to(DEVICE)
             optimizer.zero_grad()
             
-            pred, _, ls = model(x,z)
+            pred = model(x)#,z)
             pred = torch.squeeze(pred)
-            loss = criterion(pred, torch.squeeze(y.float())) + ls
+            loss = criterion(pred, torch.squeeze(y.float()))
             loss.backward()
             optimizer.step()
 
@@ -48,10 +45,7 @@ def train_bin_cls_(model:nn.Module,
         if exlr_on: exlr.step()
         tr_loss.append(round(trn_loss/len(train_loader), 4))
         tr_acc.append(round(100 * tr_correct / tr_total, 4))
-        end.record()
-        torch.cuda.synchronize()
-        total += [start.elapsed_time(end)]
-    if verbose_time: print(f'inference time = {np.mean(time_total):.2f}')
+        
     # if not early_stopped:
     #     torch.save(model.state_dict(), f'best_model.pth')
     return tr_acc, tr_loss
@@ -63,11 +57,12 @@ def test_bin_cls_(model:nn.Module, tst_loader:DataLoader):
     targets = np.array([])
     with torch.no_grad():
         model.eval()
-        for x, z, y in tst_loader:
+        for x, y in tst_loader:
+        # for x, z, y in tst_loader:
             x = x.to(DEVICE)
-            z = z.to(DEVICE)
+            # z = z.to(DEVICE)
             y = y.to(DEVICE)
-            pred, _, _ = model(x,z)
+            pred= model(x)#,z)
             pred = torch.squeeze(pred)
             predicted = (pred > 0.5).int()
             correct += (predicted==y).sum().item()
@@ -91,7 +86,17 @@ def emotion_classification(emotion_dataset, learning_rate, num_epochs, dat_type=
     for subj, data_loaders in enumerate(emotion_dataset):
         train_loader, val_loader, test_loader = data_loaders
 
-        model = STANet().to(DEVICE)
+        model = SyncNet3(emotion_dataset.data_shape_eeg if dat_type==1 else emotion_dataset.data_shape_fnirs, 
+                        data_mode=dat_type,
+                        num_segments=12,
+                        embed_dim=128,
+                        num_heads=4,
+                        num_layers=2,
+                        use_lstm=False,
+                        num_groups=4,
+                        actv_mode="elu",
+                        pool_mode="mean", 
+                        num_classes=num_classes).to(DEVICE)
 
         trainer = train_bin_cls_
         tester = test_bin_cls_
@@ -129,24 +134,25 @@ def emotion_classification(emotion_dataset, learning_rate, num_epochs, dat_type=
 def train_emotion():
     path = 'D:/One_한양대학교/private object minsu/coding/data/brain_2025'
     # path = 'D:/KMS/data/brain_2025'
+    dat_mode = 2
     emotion_dataset = Emotion_DataModule(path,
-                                         data_mode=0,
+                                         data_mode=dat_mode,
                                          label_type=0,
                                          ica=True,
                                          start_point=60,
                                          window_len=60,
                                          num_val=0,
                                          batch_size=16,
-                                         transform_eeg=1,
-                                         transform_fnirs=1)
+                                         transform_eeg=None,
+                                         transform_fnirs=None)
     for label_type in [0,1]:
         emotion_dataset.change_label(label_type)
-        # for set_ in [(5e-4,100,16),(5e-4,50,32),(5e-4,25,16),(5e-4,50,8),(1e-4,50,16),(1e-4,100,16),(1e-3,50,16),(1e-3,25,16)]:
-        for set_ in [(5e-4,5,64),(5e-4,50,64),(1e-3,50,32),(1e-3,50,64),(5e-3,50,32),(1e-2,50,32),]:
+        for set_ in [(5e-4,100,16),(5e-4,50,32),(5e-4,25,16),(5e-4,50,8),(1e-4,50,16),(1e-4,100,16),(1e-3,50,16),(1e-3,25,16)]:
+        # for set_ in [(5e-4,5,64),(5e-4,50,64),(1e-3,50,32),(1e-3,50,64),(5e-3,50,32),(1e-2,50,32),]:
             print(label_type, set_)
             learning_rate, num_epochs, batch_size = set_
             emotion_dataset.change_batch_size(batch_size)
-            emotion_classification(emotion_dataset, learning_rate, num_epochs)
+            emotion_classification(emotion_dataset, learning_rate, num_epochs, dat_mode)
     # 0 (0.001, 50, 16) avg Acc: 60.76 %, std: 11.47, sen: 55.56, spc: 65.97
     # 1 (0.0005, 50, 32) avg Acc: 60.42 %, std: 14.58, sen: 45.14, spc: 75.69
     # print()
@@ -180,7 +186,7 @@ def train_MIMA(label_type):
                             transform_eeg=1,
                             transform_fnirs=1)
     
-    for set_ in [(5e-4,100,16),(5e-4,50,32),(5e-4,50,64),(5e-4,50,16),(1e-4,50,32),(1e-4,100,32),(1e-3,50,32),(1e-3,100,32)]:
+    for set_ in [(5e-4,100,32),(5e-4,50,32),(5e-4,50,16),(5e-4,30,16),(1e-4,50,32),(1e-4,100,32)]:
     # for set_ in [(5e-4,50,32),(5e-4,50,64),(1e-3,50,32),(1e-3,50,64),(5e-3,50,32),(1e-2,50,32)]:
         print('-'*32, set_)
         learning_rate, num_epochs, batch_size = set_

@@ -199,8 +199,9 @@ class EarlyStopping:
 def plot_confusion_matrix(cf:np.ndarray, cls_names:list):
     import matplotlib.pyplot as plt
     import seaborn as sns
-    cf = cf[::-1,::-1]
     n_classes = len(cls_names)
+    if n_classes < 3:
+        cf = cf[::-1,::-1]
     cf_percent = cf.astype('float') / cf.sum(axis=1)[:, np.newaxis]
     labels = (np.asarray(["{0:d}\n({1:.2%})".format(value, P_value)
                       for value, P_value in zip(cf.flatten(),

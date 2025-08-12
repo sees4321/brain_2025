@@ -117,11 +117,11 @@ class Emotion_DataModule():
     
     def create_dataloader(self, eeg, fnirs, label, shuffle=False):
         if self.data_mode == 0:
-            return DataLoader(BimodalDataSet(eeg, fnirs, label), self.batch_size, shuffle=shuffle, pin_memory=True, pin_memory_device=DEVICE)
+            return DataLoader(BimodalDataSet(eeg, fnirs, label), self.batch_size, shuffle=shuffle, pin_memory=True)#, pin_memory_device=DEVICE)
         elif self.data_mode == 1:
-            return DataLoader(CustomDataSet(eeg, label), self.batch_size, shuffle=shuffle, pin_memory=True, pin_memory_device=DEVICE)
+            return DataLoader(CustomDataSet(eeg, label), self.batch_size, shuffle=shuffle, pin_memory=True)#, pin_memory_device=DEVICE)
         elif self.data_mode == 2:
-            return DataLoader(CustomDataSet(fnirs, label), self.batch_size, shuffle=shuffle, pin_memory=True, pin_memory_device=DEVICE)
+            return DataLoader(CustomDataSet(fnirs, label), self.batch_size, shuffle=shuffle, pin_memory=True)#, pin_memory_device=DEVICE) # DEVICE str(로 감싸기)
     
     def window_slicing(self, arr, start_point, window_len, total_sec):
         total_len = arr.shape[-1]
@@ -458,10 +458,6 @@ class MIMA_DataModule():
             eeg_torch = torch.from_numpy(self.eeg[self.subjects[self.test_idx]]).float()
             fnirs_torch = torch.from_numpy(self.fnirs[self.subjects[self.test_idx]]).float()
             label_torch = torch.from_numpy(self.label[self.subjects[self.test_idx]]).long()
-            aa = 4
-            # eeg_torch = torch.from_numpy(self.eeg[self.subjects[self.test_idx],aa:]).float()
-            # fnirs_torch = torch.from_numpy(self.fnirs[self.subjects[self.test_idx],aa:]).float()
-            # label_torch = torch.from_numpy(self.label[self.subjects[self.test_idx],aa:]).long()
             test_loader = self.create_dataloader(eeg_torch, fnirs_torch, label_torch)
 
             train_subjects, val_subjects = self.train_val_split()

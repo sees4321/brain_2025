@@ -210,6 +210,7 @@ def train_bin_cls2(model:nn.Module,
                 early_stop:EarlyStopping = None,
                 min_epoch:int = 0,
                 exlr_on:bool = False,
+                verbose_time:bool = False,
                 **kwargs):
     criterion = nn.BCELoss()
     optimizer = OPT_DICT[optimizer_name](model.parameters(), lr=float(learning_rate))
@@ -219,8 +220,12 @@ def train_bin_cls2(model:nn.Module,
     tr_correct, tr_total = 0, 0
     vl_correct, vl_total = 0, 0
     early_stopped = False
+    time_total = []
+    start = torch.cuda.Event(enable_timing=True)
+    end = torch.cuda.Event(enable_timing=True)
     # for epoch in tqdm(range(num_epoch), ncols=150):
     for epoch in range(num_epoch):
+        start.record()
         model.train()
         trn_loss = 0.0
         for i, data in enumerate(train_loader, 0):
@@ -241,6 +246,9 @@ def train_bin_cls2(model:nn.Module,
         if exlr_on: exlr.step()
         tr_loss.append(round(trn_loss/len(train_loader), 4))
         tr_acc.append(round(100 * tr_correct / tr_total, 4))
+        end.record()
+        torch.cuda.synchronize()
+        time_total += [start.elapsed_time(end)]
 
         if early_stop:
             with torch.no_grad():
@@ -273,7 +281,7 @@ def train_bin_cls2(model:nn.Module,
                 if early_stop.early_stop:
                     early_stopped = True
                     break  
-        
+    if verbose_time: print(f'inference time = {np.mean(time_total):.2f}')
     if not early_stopped and early_stop:
         torch.save(model.state_dict(), f'best_model.pth')
     return tr_acc, tr_loss, vl_acc, vl_loss

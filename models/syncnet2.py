@@ -8,7 +8,8 @@ def segment_data(data:torch.Tensor, num_seg = 12):
     end = data.size(-1)
     segment_length = ceil(end/num_seg)
     if end % segment_length != 0:
-        end = (end // segment_length + 1) * segment_length
+        # end = (end // segment_length + 1) * segment_length
+        end = num_seg * segment_length
     data = F.pad(data, (0,(end-data.size(-1))), mode='replicate')
     segments = []
     for i in range(0, end, segment_length):
@@ -281,7 +282,7 @@ class SyncNet2(nn.Module):
         # segmentation
         eeg = segment_data(eeg, self.num_segments) # (batch, num_segments, channels, segment_length) 
         fnirs = segment_data(fnirs, self.num_segments) # (batch, num_segments, channels, segment_length)
-        # print(eeg.shape)
+        # print(fnirs.shape)
         # print(f'segment: {time.time() - tm:.4f}')
         # tm = time.time()
         eeg = self.eeg_emb(eeg) # (batch, num_segments, embed_dim)
@@ -404,3 +405,69 @@ class SyncNet4(nn.Module):
         fused_tokens = self.pos_encoder(fused_tokens)  # (batch, total_tokens, embed_dim)
         # print(eeg.shape)
         return self.classifier(fused_tokens)  # (batch, num_classes)
+
+class SyncNet_ablation(nn.Module):
+    def __init__(self, 
+                 eeg_shape, 
+                 fnirs_shape, 
+                 embed_dim=256, 
+                 num_heads=4, 
+                 num_layers=2, 
+                 num_groups = 4,
+                 actv_mode = "elu", 
+                 pool_mode = "mean", 
+                 k_size = [13,5],
+                 hid_dim = [16,32],
+                 num_classes=1):
+        super(SyncNet_ablation, self).__init__()
+
+        actv = dict(elu=nn.ELU, gelu=nn.GELU, relu=nn.ReLU)[actv_mode]
+        pool = dict(max=nn.MaxPool2d, mean=nn.AvgPool2d)[pool_mode]
+
+        self.eeg_emb = nn.Sequential(
+            nn.Conv2d(1, hid_dim[0], (1, k_size[0]), padding='same'),
+            actv(),
+            nn.GroupNorm(num_groups, hid_dim[0]),
+            nn.Conv2d(hid_dim[0], hid_dim[0], (eeg_shape[0], 1)),
+            actv(),
+            nn.GroupNorm(num_groups, hid_dim[0]),
+            pool(kernel_size=(1, 2), stride=(1, 2)),
+            nn.Conv2d(hid_dim[0], hid_dim[1], (1, k_size[0]), padding='same'),
+            actv(),
+            nn.GroupNorm(num_groups, hid_dim[1]),
+            pool(kernel_size=(1, 2), stride=(1, 2)),
+        )
+        
+        self.fnirs_emb = nn.Sequential(
+            nn.Conv2d(1, hid_dim[0], (1, k_size[1]), padding='same'),
+            actv(),
+            nn.GroupNorm(num_groups, hid_dim[0]),
+            nn.Conv2d(hid_dim[0], hid_dim[1], (fnirs_shape[0], 1)),
+            actv(),
+            nn.GroupNorm(num_groups, hid_dim[1]),
+        )
+        self.embedding1 = nn.Linear(eeg_shape[1]//4, embed_dim)
+        self.embedding2 = nn.Linear(fnirs_shape[1], embed_dim)
+        self.pos_encoder = PositionalEncoding(embed_dim)
+        self.fusion_conv = nn.Sequential(
+            nn.Linear(embed_dim*2, embed_dim),
+            nn.GroupNorm(num_groups, hid_dim[1]),
+        )
+
+        self.classifier = TransformerClassifier(embed_dim, hid_dim[1], num_heads, num_layers, num_classes)
+    
+    def forward(self, eeg, fnirs):
+        # batch 1 chan time
+        # eeg = segment_data(eeg, self.num_segments) # (batch, num_segments, channels, segment_length) 
+        # fnirs = segment_data(fnirs, self.num_segments) # (batch, num_segments, channels, segment_length)
+        eeg = self.eeg_emb(eeg.unsqueeze(1)) # (batch, 32, time//4)
+        fnirs = self.fnirs_emb(fnirs.unsqueeze(1)) # (batch, 32, time)
+        eeg = self.embedding1(eeg)
+        fnirs = self.embedding2(fnirs)
+
+        fused_tokens = torch.cat([eeg.squeeze(2), fnirs.squeeze(2)], dim=2)  # (batch, total_tokens, embed_dim*2)
+        # fused_tokens = self.fusion_conv(fused_tokens.permute(0, 2, 1)).permute(0, 2, 1)  # (batch, total_tokens, embed_dim)
+        fused_tokens = self.fusion_conv(fused_tokens) # + self.pos_embed  # (batch, total_tokens, embed_dim)
+        fused_tokens = self.pos_encoder(fused_tokens)  # (batch, total_tokens, embed_dim)
+        fused_tokens = self.classifier(fused_tokens)  # (batch, num_classes)
+        return fused_tokens

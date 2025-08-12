@@ -26,8 +26,8 @@ def leave_one_out_cross_validation(data_mode:int=0, label_type:int=0):
     num_epochs = 50
     min_epoch = 50
     start_time = datetime.datetime.now().strftime('%m%d_%H%M')
-    # path = 'D:\One_한양대학교\private object minsu\coding\data\EEG_fnirs_cognitive_open\datasetA'
-    path = 'D:/KMS/data/brain_2025'
+    path = 'D:\One_한양대학교\private object minsu\coding\data\EEG_fnirs_cognitive_open'
+    # path = 'D:/KMS/data/brain_2025'
     
     
     dataset = MIMA_DataModule(path,
@@ -62,18 +62,19 @@ def leave_one_out_cross_validation(data_mode:int=0, label_type:int=0):
                 trainer = train_bin_cls2
                 tester = test_bin_cls2
                 num_classes = 1
-            # model = SyncNet2(dataset.data_shape_eeg, 
-            #                 dataset.data_shape_fnirs, 
-            #                 num_segments=4,
-            #                 embed_dim=128,
-            #                 num_heads=2,
-            #                 num_layers=1,
-            #                 num_groups=1,
-            #                 actv_mode="elu",
-            #                 pool_mode="mean", 
-            #                 k_size=[15, 3],
-            #                 hid_dim=[128, 32],
-            #                 num_classes=num_classes).to(DEVICE)
+            model = SyncNet2(dataset.data_shape_eeg, 
+                            dataset.data_shape_fnirs, 
+                            num_segments=4,
+                            embed_dim=128,
+                            num_heads=2,
+                            num_layers=1,
+                            num_groups=1,
+                            actv_mode="elu",
+                            use_lstm= True,
+                            pool_mode="mean", 
+                            k_size=[15, 3],
+                            hid_dim=[128, 32],
+                            num_classes=num_classes).to(DEVICE)
             # config = Config(
             #     eeg_channels=dataset.eeg.shape[-2],
             #     eeg_num_samples=dataset.eeg.shape[-1],
@@ -83,7 +84,7 @@ def leave_one_out_cross_validation(data_mode:int=0, label_type:int=0):
             #     num_classes=num_classes,
             # )
             # model = BimodalNet(config).to(DEVICE)
-            model = EF_net(num_classes).to(DEVICE)
+            # model = EF_net(num_classes).to(DEVICE)
             # model = None
         else:
             if label_type == 4:
@@ -175,12 +176,15 @@ if __name__ == "__main__":
     #     for label_type in [2,3,4]:
     #         print('-'*32 + str(dat_type) + str(label_type))
     #         leave_one_out_cross_validation(dat_type,label_type)
-    dat_type = [0,1,1]
-    for i in range(1):
-        aaa = i
-        for label_type in [2,3]:
-            print('-'*32 + str(i) + str(label_type))
-            leave_one_out_cross_validation(dat_type[i], label_type)
+    # dat_type = [0,1,1]
+    # for i in range(1):
+    #     aaa = i
+    #     for label_type in [2,3]:
+    #         print('-'*32 + str(i) + str(label_type))
+    #         leave_one_out_cross_validation(dat_type[i], label_type)
+    for label_type in [2,3,4]:
+        print('-'*32 + str(label_type))
+        leave_one_out_cross_validation(0, label_type)
 
     # for i, v in enumerate(['wg','dsr','nback']):
     #     for dat_type in [0,1,2]:

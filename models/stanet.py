@@ -233,7 +233,7 @@ class STANet(nn.Module):
     """
     The main Spatio-Temporal Attention Network (STA-Net) model.
     """
-    def __init__(self):
+    def __init__(self, n_classes = 1):
         super(STANet, self).__init__()
         
         # First Convolutional Block
@@ -263,9 +263,9 @@ class STANet(nn.Module):
         
         self.eeg_fc1 = nn.Linear(4*4*32, 256) # Flattened size of eeg2 after GAP
         
-        self.eegfusion_pred_fc = nn.Linear(256, 1)
-        self.fnirs_pred_fc = nn.Linear(256, 1)
-        self.eeg_pred_fc = nn.Linear(256, 1)
+        self.eegfusion_pred_fc = nn.Linear(256, n_classes)
+        self.fnirs_pred_fc = nn.Linear(256, n_classes)
+        self.eeg_pred_fc = nn.Linear(256, n_classes)
 
         # Dense layers for prediction weights
         self.eegfusion_p_weight_fc = nn.Linear(256, 1)
@@ -329,13 +329,12 @@ class STANet(nn.Module):
         eeg_feature = F.elu(self.eeg_fc1(eeg_feature))
 
         # Prediction heads
-        eegfusion_pred = self.eegfusion_pred_fc(eegfusion_feature_pweight)
-        fnirs_pred = self.fnirs_pred_fc(fnirs_feature_pweight)
+        eegfusion_pred = self.eegfusion_pred_fc(eegfusion_feature_pweight).unsqueeze(1)
+        fnirs_pred = self.fnirs_pred_fc(fnirs_feature_pweight).unsqueeze(1)
         eeg_pred = self.eeg_pred_fc(eeg_feature)
 
         # Main EEG prediction output with softmax
         # eeg_pred_out = F.softmax(eeg_pred, dim=1)
-        eeg_pred_out = F.sigmoid(eeg_pred)
 
         # Combine fusion and fNIRS predictions for the final output
         # eegfusion_pred = F.softmax(eegfusion_pred, dim=1).unsqueeze(1)
@@ -350,12 +349,18 @@ class STANet(nn.Module):
         fnirs_p_weight = self.fnirs_p_weight_fc(fnirs_feature_pweight)
 
         p_weight = torch.cat([eegfusion_p_weight, fnirs_p_weight], dim=1)
-        p_weight = F.softmax(p_weight, dim=1)#.unsqueeze(-1)
+        p_weight = F.softmax(p_weight, dim=1).unsqueeze(-1)
 
         # Apply weights and sum
         the_pred = the_pred_cat * p_weight
         the_pred_out = torch.mean(the_pred, dim=1)
-        the_pred_out = F.sigmoid(the_pred_out)
+        if the_pred_out.shape[-1] == 1:
+            the_pred_out = F.sigmoid(the_pred_out)
+            eeg_pred_out = F.sigmoid(eeg_pred)
+        else:
+            the_pred_out = F.softmax(the_pred_out,1)
+            eeg_pred_out = F.softmax(eeg_pred,1)
+
         # The total loss would be a combination of the main classification loss
         # and the custom correlation losses returned here.
         # Loss = main_loss + (1 - fga1_loss) + (1 - fga2_loss) + (1 - ef_loss)

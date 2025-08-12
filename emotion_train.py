@@ -16,17 +16,22 @@ from models.fnirs_model import *
 from models.fnirs_transformer import fNIRS_PreT, divide_ab
 from models.efnet import EF_net
 # from models.hirenet import HiRENet, make_input
+from models.efnet import EF_net
 from models.MTCA_CapsNet import MTCA_CapsNet
 from modules import Emotion_DataModule, MIST_DataModule
 from utils import *
 from torchmetrics.classification import BinaryConfusionMatrix
 
+learning_rate = 5e-4
+num_batch = 32
+num_epochs = 50
 
 def leave_one_out_cross_validation(label_type:int=0, data_mode:int=0):
     ManualSeed(0)
-    learning_rate = 5e-4
-    num_batch = 32
-    num_epochs = 50
+    
+    # learning_rate = 5e-4
+    # num_batch = 32
+    # num_epochs = 50
     min_epoch = 50
     time = datetime.datetime.now().strftime('%m%d_%H%M')
     path = 'D:/One_한양대학교/private object minsu/coding/data/brain_2025'
@@ -83,7 +88,7 @@ def leave_one_out_cross_validation(label_type:int=0, data_mode:int=0):
         if data_mode == 0:
             model = SyncNet4(emotion_dataset.data_shape_eeg,  
                             emotion_dataset.data_shape_fnirs, 
-                            num_segments=seg,
+                            num_segments=12,
                             embed_dim=256,
                             num_heads=4,
                             num_layers=2,
@@ -145,21 +150,23 @@ def leave_one_out_cross_validation(label_type:int=0, data_mode:int=0):
 
         # print(f'[{subj:0>2}] acc: {test_acc} %, training acc: {train_acc[-1]:.2f} %, training loss: {train_loss[-1]:.3f}')
         # print(f'[{subj:0>2}] acc: {test_acc} %, training acc: {train_acc[es.epoch]:.2f} %, training loss: {train_loss[es.epoch]:.3f}, val acc: {val_acc[es.epoch]:.2f} %, val loss: {val_loss[es.epoch]:.3f}, es: {es.epoch}')
-
+    tr_loss, tr_acc = np.array(tr_loss), np.array(tr_acc)
+    print(f'training acc: {np.mean(tr_acc[:,-1]):.2f} %, training loss: {np.mean(tr_loss[:,-1]):.3f}')
     print(f'avg Acc: {np.mean(ts_acc):.2f} %, std: {np.std(ts_acc):.2f}, sen: {np.mean(ts_sen)*100:.2f}, spc: {np.mean(ts_spc)*100:.2f}')
     # np.save('ts_acc.npy',ts_acc)
     # print('end')
     cls_names = ['Positive','Negative'] if label_type == 1 else ['High', 'Low']
     # plot_confusion_matrix(cf_out,cls_names)
-seg = 30
+
 if __name__ == "__main__":
     # for i in range(0,1):
     i = 0
-    # for seg in [8, 12, 20, 24, 30]:
-    # for seg in [64,128,256,512]:
-    print('-'*32+str(seg))
-    leave_one_out_cross_validation(0,i)
-    leave_one_out_cross_validation(1,i)
+    
+    for set_ in [(5e-4,100,16),(5e-4,50,32),(5e-4,50,64),(5e-4,50,16),(1e-4,50,32),(1e-4,100,32),(1e-3,50,32),(1e-3,100,32)]:
+        print('-'*32, set_)
+        learning_rate, num_epochs, num_batch = set_
+        leave_one_out_cross_validation(0,i)
+        leave_one_out_cross_validation(1,i)
     # print()
     # plot_confusion_matrix(np.array([[126,18],[22,122]],int),['High', 'Low'])
     # plot_confusion_matrix(np.array([[124,20],[24,120]],int),['Positive', 'Negative'])

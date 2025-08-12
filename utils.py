@@ -220,5 +220,5 @@ def plot_confusion_matrix(cf:np.ndarray, cls_names:list):
     heatmap.set_yticklabels(cls_names, rotation=0)
 
     plt.tight_layout()
-    plt.savefig('multi_class_confusion_matrix.png', dpi=300)
+    plt.savefig(f'confusion_matrix_{cls_names[0]}.png', dpi=300)
     plt.show()

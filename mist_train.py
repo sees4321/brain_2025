@@ -14,6 +14,8 @@ from models.bimodalnet_old1 import BimodalNet, Config
 # from models.fnirs_model import *
 from models.fnirsnet import fNIRSNet
 from models.hirenet import HiRENet, make_input
+from models.fnirs_transformer import fNIRS_PreT, divide_ab
+from models.efnet import EF_net
 from models.MTCA_CapsNet import MTCA_CapsNet
 from modules import Emotion_DataModule, MIST_DataModule
 from utils import *
@@ -48,15 +50,15 @@ def leave_one_out_cross_validation(data_mode:int=0):
                                          num_val=0,
                                          batch_size=num_batch,
                                          transform_eeg=None,
-                                         transform_fnirs=None)
-    config = Config(
-        eeg_channels=emotion_dataset.eeg.shape[2],
-        eeg_num_samples=emotion_dataset.eeg.shape[-1],
-        fnirs_channels=emotion_dataset.fnirs.shape[2],
-        fnirs_num_samples=emotion_dataset.fnirs.shape[-1],
-        eeg_temporal_length=64,
-        num_classes=1,
-    )
+                                         transform_fnirs=None) #divide_ab if data_mode == 2 else None)
+    # config = Config(
+    #     eeg_channels=emotion_dataset.eeg.shape[2],
+    #     eeg_num_samples=emotion_dataset.eeg.shape[-1],
+    #     fnirs_channels=emotion_dataset.fnirs.shape[2],
+    #     fnirs_num_samples=emotion_dataset.fnirs.shape[-1],
+    #     eeg_temporal_length=64,
+    #     num_classes=1,
+    # )
 
     tr_acc = []
     tr_loss = []
@@ -89,18 +91,19 @@ def leave_one_out_cross_validation(data_mode:int=0):
         if data_mode == 0:
             model = SyncNet2(emotion_dataset.data_shape_eeg, 
                             emotion_dataset.data_shape_fnirs, 
-                            num_segments=20,
+                            num_segments=20,#seg,
                             embed_dim=256,
                             num_heads=4,
                             num_layers=2,
                             use_lstm=False,
-                            num_groups=4,
+                            num_groups=4,#2 if seg==30 else 4,
                             actv_mode="elu",
                             pool_mode="max", 
                             num_classes=1).to(DEVICE)
             # model = SyncNet_ablation(emotion_dataset.data_shape_eeg, 
             #                          emotion_dataset.data_shape_fnirs).to(DEVICE)
             # model = BimodalNet(config).to(DEVICE)
+            # model = EF_net(1).to(DEVICE)
             trainer = train_bin_cls2
             tester = test_bin_cls2
         else:
@@ -115,7 +118,11 @@ def leave_one_out_cross_validation(data_mode:int=0):
             #                 actv_mode="elu",
             #                 pool_mode="mean", 
             #                 num_classes=1).to(DEVICE)
-            model = HiRENet(7,16,num_seg=30).to(DEVICE)
+            # model = HiRENet(7,16,num_seg=30).to(DEVICE)
+            if data_mode == 1:
+                model = EEGNet(emotion_dataset.eeg.shape[-2:], 200, 1).to(DEVICE)
+            elif data_mode == 2:
+                model = fNIRS_PreT(1,emotion_dataset.fnirs.shape[-1],32,2,4,32).to(DEVICE)
             # model = fNIRSNet(1,367).to(DEVICE)
             trainer = train_bin_cls
             tester = test_bin_cls
@@ -147,14 +154,20 @@ def leave_one_out_cross_validation(data_mode:int=0):
         ts_spc.append(cf[0,0]/(cf[0,0]+cf[0,1]))
         cf_out += cf.numpy()
 
-        print(f'[{subj:0>2}] acc: {test_acc} %, training acc: {train_acc[-1]:.2f} %, training loss: {train_loss[-1]:.3f}')
+        # print(f'[{subj:0>2}] acc: {test_acc} %, training acc: {train_acc[-1]:.2f} %, training loss: {train_loss[-1]:.3f}')
         # print(f'[{subj:0>2}] acc: {test_acc} %, training acc: {train_acc[es.epoch]:.2f} %, training loss: {train_loss[es.epoch]:.3f}, val acc: {val_acc[es.epoch]:.2f} %, val loss: {val_loss[es.epoch]:.3f}, es: {es.epoch}')
 
     print(f'avg Acc: {np.mean(ts_acc):.2f} %, std: {np.std(ts_acc):.2f}, sen: {np.mean(ts_sen)*100:.2f}, spc: {np.mean(ts_spc)*100:.2f}')
     # np.save('ts_acc.npy',ts_acc)
     # print('end')
-    plot_confusion_matrix(cf_out,['High','Low'])
+    # plot_confusion_matrix(cf_out,['High','Low'])
 
-
+seg = 20
 if __name__ == "__main__":
+    # for seg in [8, 12, 20, 24, 30]:
+    #     if seg not in [24, 30]: continue
+    # # for seg in [64,128,256,512]:
+    #     print('-'*32 + str(seg))
     leave_one_out_cross_validation(0)
+    # leave_one_out_cross_validation(1)
+    # leave_one_out_cross_validation(2)

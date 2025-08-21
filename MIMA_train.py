@@ -82,7 +82,7 @@ def leave_one_out_cross_validation(config, data_mode:int=0, label_type:int=0):
                             actv_mode=config.model.actv_mode,
                             pool_mode=config.model.pool_mode, 
                             k_size=config.model.k_size,
-                            # hid_dim=config.model.hid_dim,
+                            hid_dim=config.model.hid_dim,
                             num_classes=config.model.num_classes).to(DEVICE)
             if config.model.num_classes > 1:
                 trainer = train_bin_cls4
@@ -158,12 +158,25 @@ def leave_one_out_cross_validation(config, data_mode:int=0, label_type:int=0):
 seg = 20
 hid1, hid2, gr = 0, 0, 0
 if __name__ == "__main__":
+    with open(f"yamls/nback_best.yaml", 'r') as f:
+        config_yaml = yaml.load(f, Loader=yaml.FullLoader)
+        config = Box(config_yaml)
+        leave_one_out_cross_validation(config,1,4)
     # plot_confusion_matrix(np.array([[172,20,42],[36,124,74],[32,56,144]],int), ['0-back','2-back','3-back'])
     # plot_confusion_matrix(np.array([[436,32],[18,450]],int), ['DSR','Resting'])
-    # with open(f"yamls/nback{9}.yaml", 'r') as f:
-    #     config_yaml = yaml.load(f, Loader=yaml.FullLoader)
-    #     config = Box(config_yaml)
-    #     leave_one_out_cross_validation(config,0,4)
+    # for seg in [1,2]:#,1]:
+    #     with open(f"yamls/nback{9}.yaml", 'r') as f:
+    #         config_yaml = yaml.load(f, Loader=yaml.FullLoader)
+    #         config = Box(config_yaml)
+    #         leave_one_out_cross_validation(config,seg,4)
+    #     with open(f"yamls/wg_best.yaml", 'r') as f:
+    #         config_yaml = yaml.load(f, Loader=yaml.FullLoader)
+    #         config = Box(config_yaml)
+    #         leave_one_out_cross_validation(config,seg,2)
+    #     with open(f"yamls/dsr_best.yaml", 'r') as f:
+    #         config_yaml = yaml.load(f, Loader=yaml.FullLoader)
+    #         config = Box(config_yaml)
+    #         leave_one_out_cross_validation(config,seg,3)
     # for i in range(8):
     #     # if i in [0,1]: continue
     #     with open(f"yamls/nback{i+1}.yaml", 'r') as f:

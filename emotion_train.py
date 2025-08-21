@@ -22,9 +22,9 @@ from modules import Emotion_DataModule, MIST_DataModule
 from utils import *
 from torchmetrics.classification import BinaryConfusionMatrix
 
-learning_rate = 5e-4
+learning_rate = 1e-4
 num_batch = 32
-num_epochs = 50
+num_epochs = 100
 
 def leave_one_out_cross_validation(label_type:int=0, data_mode:int=0):
     ManualSeed(0)
@@ -93,7 +93,7 @@ def leave_one_out_cross_validation(label_type:int=0, data_mode:int=0):
                             num_heads=4,
                             num_layers=2,
                             use_lstm=False,
-                            num_groups=2, #4
+                            num_groups=4,
                             actv_mode="elu",
                             pool_mode="max", 
                             num_classes=1).to(DEVICE)
@@ -105,14 +105,14 @@ def leave_one_out_cross_validation(label_type:int=0, data_mode:int=0):
         else:
             model = SyncNet3(emotion_dataset.data_shape_eeg if data_mode==1 else emotion_dataset.data_shape_fnirs, 
                             data_mode=data_mode,
-                            num_segments=12,
-                            embed_dim=128,
+                            num_segments=20,
+                            embed_dim=128, #256
                             num_heads=4,
-                            num_layers=2,
+                            num_layers=1,
                             use_lstm=False,
-                            num_groups=4,
+                            num_groups=1,
                             actv_mode="elu", 
-                            pool_mode="max", #mean
+                            pool_mode="mean", #mean
                             num_classes=1).to(DEVICE)
             # model = fNIRSNet(1).to(DEVICE)
             # model = EEGNet_fNIRS(cls=True).to(DEVICE)
@@ -159,14 +159,15 @@ def leave_one_out_cross_validation(label_type:int=0, data_mode:int=0):
     # plot_confusion_matrix(cf_out,cls_names)
 
 if __name__ == "__main__":
+    # plot_confusion_matrix(np.array([[625,155],[164,616]],int),['WG', 'resting'])
     # for i in range(0,1):
-    i = 0
-    
-    for set_ in [(5e-4,100,16),(5e-4,50,32),(5e-4,50,64),(5e-4,50,16),(1e-4,50,32),(1e-4,100,32),(1e-3,50,32),(1e-3,100,32)]:
-        print('-'*32, set_)
-        learning_rate, num_epochs, num_batch = set_
-        leave_one_out_cross_validation(0,i)
-        leave_one_out_cross_validation(1,i)
+    i = 2
+    # leave_one_out_cross_validation(0,i)
+    # for set_ in [(5e-4,100,16),(5e-4,50,32),(5e-4,50,64),(5e-4,50,16),(1e-4,50,32),(1e-4,100,32),(1e-3,50,32),(1e-3,100,32)]:
+    #     print('-'*32, set_)
+    #     learning_rate, num_epochs, num_batch = set_
+    leave_one_out_cross_validation(0,i)
+    #     leave_one_out_cross_validation(1,i)
     # print()
     # plot_confusion_matrix(np.array([[126,18],[22,122]],int),['High', 'Low'])
     # plot_confusion_matrix(np.array([[124,20],[24,120]],int),['Positive', 'Negative'])

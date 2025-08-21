@@ -243,8 +243,8 @@ def train_emotion():
     # print()
 
 def train_stress():
-    # path = 'D:/One_한양대학교/private object minsu/coding/data/brain_2025'
-    path = 'D:/KMS/data/brain_2025'
+    path = 'D:/One_한양대학교/private object minsu/coding/data/brain_2025'
+    # path = 'D:/KMS/data/brain_2025'
     emotion_dataset = MIST_DataModule(path,
                                         data_mode=0,
                                         start_point=0,

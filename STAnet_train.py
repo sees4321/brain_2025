@@ -233,8 +233,8 @@ def train_emotion():
     # print()
 
 def train_stress():
-    # path = 'D:/One_한양대학교/private object minsu/coding/data/brain_2025'
-    path = 'D:/KMS/data/brain_2025'
+    path = 'D:/One_한양대학교/private object minsu/coding/data/brain_2025'
+    # path = 'D:/KMS/data/brain_2025'
     emotion_dataset = MIST_DataModule(path,
                                         data_mode=0,
                                         start_point=0,
@@ -243,12 +243,13 @@ def train_stress():
                                         batch_size=16,
                                         transform_eeg=1,
                                         transform_fnirs=1)
-    for set_ in [(5e-4,100,16),(5e-4,50,32),(5e-4,50,64),(5e-4,50,16),(1e-4,50,32),(1e-4,100,32),(1e-3,50,32),(1e-3,100,32)]:
+    # for set_ in [(5e-4,100,16),(5e-4,50,32),(5e-4,50,64),(5e-4,50,16),(1e-4,50,32),(1e-4,100,32),(1e-3,50,32),(1e-3,100,32)]:
     # for set_ in [(5e-4,50,32),(5e-4,50,64),(1e-3,50,32),(1e-3,50,64),(5e-3,50,32),(1e-2,50,32)]:
-        print('-'*32, set_)
-        learning_rate, num_epochs, batch_size = set_
-        emotion_dataset.change_batch_size(batch_size)
-        emotion_classification(emotion_dataset, learning_rate, num_epochs)
+    set_ = (1e-3, 50, 32)
+    print('-'*32, set_)
+    learning_rate, num_epochs, batch_size = set_
+    emotion_dataset.change_batch_size(batch_size)
+    emotion_classification(emotion_dataset, learning_rate, num_epochs)
 
 def train_MIMA(label_type):
     # path = 'D:/One_한양대학교/private object minsu/coding/data/brain_2025'
@@ -271,8 +272,8 @@ def train_MIMA(label_type):
 if __name__ == "__main__":
     # import warnings
     # warnings.filterwarnings("error", category=RuntimeWarning) # 모든 RuntimeWarning을 예외로 처리
-    train_emotion()
-    # train_stress()
+    # train_emotion()
+    train_stress()
     # train_MIMA(2)
     # train_MIMA(3)
     # train_MIMA(4)

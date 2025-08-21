@@ -24,7 +24,7 @@ from torchmetrics.classification import BinaryConfusionMatrix
 
 def leave_one_out_cross_validation(data_mode:int=0):
     ManualSeed(0) 
-    learning_rate = 5e-4
+    learning_rate = 1e-3
     num_batch = 16
     num_epochs = 50
     min_epoch = 50
@@ -44,13 +44,13 @@ def leave_one_out_cross_validation(data_mode:int=0):
     #                                      transform_fnirs=None)
     
     emotion_dataset = MIST_DataModule(path,
-                                         data_mode=data_mode,
-                                         start_point=0,
-                                         window_len=60,
-                                         num_val=0,
-                                         batch_size=num_batch,
-                                         transform_eeg=None,
-                                         transform_fnirs=None) #divide_ab if data_mode == 2 else None)
+                                        data_mode=data_mode,
+                                        start_point=0,
+                                        window_len=60,
+                                        num_val=0,
+                                        batch_size=num_batch,
+                                        transform_eeg=None,
+                                        transform_fnirs=None) #divide_ab if data_mode == 2 else None)
     # config = Config(
     #     eeg_channels=emotion_dataset.eeg.shape[2],
     #     eeg_num_samples=emotion_dataset.eeg.shape[-1],
@@ -91,12 +91,12 @@ def leave_one_out_cross_validation(data_mode:int=0):
         if data_mode == 0:
             model = SyncNet2(emotion_dataset.data_shape_eeg, 
                             emotion_dataset.data_shape_fnirs, 
-                            num_segments=20,#seg,
+                            num_segments=seg,
                             embed_dim=256,
                             num_heads=4,
                             num_layers=2,
                             use_lstm=False,
-                            num_groups=4,#2 if seg==30 else 4,
+                            num_groups=2,#2 if seg==30 else 4,
                             actv_mode="elu",
                             pool_mode="max", 
                             num_classes=1).to(DEVICE)
@@ -162,12 +162,12 @@ def leave_one_out_cross_validation(data_mode:int=0):
     # print('end')
     # plot_confusion_matrix(cf_out,['High','Low'])
 
-seg = 20
+seg = 30
 if __name__ == "__main__":
     # for seg in [8, 12, 20, 24, 30]:
     #     if seg not in [24, 30]: continue
-    # # for seg in [64,128,256,512]:
-    #     print('-'*32 + str(seg))
+    # or seg in [64,128,256,512]:
+    print('-'*32 + str(seg))
     leave_one_out_cross_validation(0)
     # leave_one_out_cross_validation(1)
     # leave_one_out_cross_validation(2)

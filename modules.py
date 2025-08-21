@@ -413,6 +413,7 @@ class MIMA_DataModule():
         self.batch_size = batch_size
         self.num_val = num_val
         self.test_idx = 0
+        self.label_type = label_type
         
         # load data
         if label_type == 0:
@@ -460,12 +461,14 @@ class MIMA_DataModule():
             test_loader = self.create_dataloader(eeg_torch, fnirs_torch, label_torch)
 
             train_subjects, val_subjects = self.train_val_split()
-            # eeg_torch = torch.from_numpy(np.concatenate([self.eeg[i] for i in train_subjects])).float()
-            # fnirs_torch = torch.from_numpy(np.concatenate([self.fnirs[i] for i in train_subjects])).float()
-            # label_torch = torch.from_numpy(np.concatenate([self.label[i] for i in train_subjects])).long()
-            eeg_torch = torch.from_numpy(np.concatenate([self.eeg[i] for i in train_subjects]+[self.eeg[self.subjects[self.test_idx],0::5]])).float()
-            fnirs_torch = torch.from_numpy(np.concatenate([self.fnirs[i] for i in train_subjects]+[self.fnirs[self.subjects[self.test_idx],0::5]])).float()
-            label_torch = torch.from_numpy(np.concatenate([self.label[i] for i in train_subjects]+[self.label[self.subjects[self.test_idx],0::5]])).long()
+            if self.label_type == -1:#4:
+                eeg_torch = torch.from_numpy(np.concatenate([self.eeg[i] for i in train_subjects]+[self.eeg[self.subjects[self.test_idx],0::5]])).float()
+                fnirs_torch = torch.from_numpy(np.concatenate([self.fnirs[i] for i in train_subjects]+[self.fnirs[self.subjects[self.test_idx],0::5]])).float()
+                label_torch = torch.from_numpy(np.concatenate([self.label[i] for i in train_subjects]+[self.label[self.subjects[self.test_idx],0::5]])).long()
+            else:
+                eeg_torch = torch.from_numpy(np.concatenate([self.eeg[i] for i in train_subjects])).float()
+                fnirs_torch = torch.from_numpy(np.concatenate([self.fnirs[i] for i in train_subjects])).float()
+                label_torch = torch.from_numpy(np.concatenate([self.label[i] for i in train_subjects])).long()
             train_loader = self.create_dataloader(eeg_torch, fnirs_torch, label_torch)
 
             self.test_idx += 1

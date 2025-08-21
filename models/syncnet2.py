@@ -231,7 +231,7 @@ class LSTMClassifier(nn.Module):
         )
         self.fc = nn.Sequential(
             nn.Linear(input_dim*2*num_segments, num_classes),
-            nn.Sigmoid() if num_classes == 1 else nn.LogSoftmax()
+            nn.Sigmoid() if num_classes == 1 else nn.LogSoftmax(dim=1)
         )
     
     def forward(self, x):

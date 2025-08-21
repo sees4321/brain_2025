@@ -12,6 +12,7 @@ def train_mc_cls_(model:nn.Module,
                 optimizer_name:str, 
                 learning_rate:str, 
                 exlr_on:bool = False,
+                verbose_time:bool = False,
                 **kwargs):
     criterion = nn.CrossEntropyLoss()
     optimizer = OPT_DICT[optimizer_name](model.parameters(), lr=float(learning_rate))
@@ -19,8 +20,12 @@ def train_mc_cls_(model:nn.Module,
     tr_acc, tr_loss = [], []
     tr_correct, tr_total = 0, 0
     early_stopped = False
+    time_total = []
+    start = torch.cuda.Event(enable_timing=True)
+    end = torch.cuda.Event(enable_timing=True)
     # for epoch in tqdm(range(num_epoch), ncols=150):
     for epoch in range(num_epoch):
+        start.record()
         model.train()
         trn_loss = 0.0
         for i, data in enumerate(train_loader, 0):
@@ -43,9 +48,13 @@ def train_mc_cls_(model:nn.Module,
         if exlr_on: exlr.step()
         tr_loss.append(round(trn_loss/len(train_loader), 4))
         tr_acc.append(round(100 * tr_correct / tr_total, 4))
+        end.record()
+        torch.cuda.synchronize()
+        time_total += [start.elapsed_time(end)]
         
     # if not early_stopped:
     #     torch.save(model.state_dict(), f'best_model.pth')
+    if verbose_time: print(f'inference time = {np.mean(time_total):.2f}')
     return tr_acc, tr_loss
 
 def test_mc_cls_(model:nn.Module, tst_loader:DataLoader):
@@ -113,7 +122,7 @@ def train_bin_cls_(model:nn.Module,
         tr_acc.append(round(100 * tr_correct / tr_total, 4))
         end.record()
         torch.cuda.synchronize()
-        total += [start.elapsed_time(end)]
+        time_total += [start.elapsed_time(end)]
     if verbose_time: print(f'inference time = {np.mean(time_total):.2f}')
     # if not early_stopped:
     #     torch.save(model.state_dict(), f'best_model.pth')
@@ -172,7 +181,8 @@ def emotion_classification(emotion_dataset, learning_rate, num_epochs, lab_type=
                                         num_epoch=num_epochs, 
                                         optimizer_name='Adam',
                                         learning_rate=str(learning_rate),
-                                        exlr_on=False)
+                                        exlr_on=False,
+                                        verbose_time=False)
         tr_acc.append(train_acc)
         tr_loss.append(train_loss)
 
@@ -208,8 +218,8 @@ def emotion_classification(emotion_dataset, learning_rate, num_epochs, lab_type=
     # print('end')
 
 def train_emotion():
-    path = 'D:/One_한양대학교/private object minsu/coding/data/brain_2025'
-    # path = 'D:/KMS/data/brain_2025'
+    # path = 'D:/One_한양대학교/private object minsu/coding/data/brain_2025'
+    path = 'D:/KMS/data/brain_2025'
     emotion_dataset = Emotion_DataModule(path,
                                          data_mode=0,
                                          label_type=0,
@@ -243,8 +253,9 @@ def train_stress():
                                         batch_size=16,
                                         transform_eeg=1,
                                         transform_fnirs=1)
-    for set_ in [(5e-4,100,16),(5e-4,50,32),(5e-4,50,64),(5e-4,50,16),(1e-4,50,32),(1e-4,100,32),(1e-3,50,32),(1e-3,100,32)]:
+    for set_ in [(5e-4,100,16),(5e-4,50,16),(5e-4,50,64),(1e-4,50,16),(1e-3,25,16),(1e-3,50,16),(1e-3,100,16)]:
     # for set_ in [(5e-4,50,32),(5e-4,50,64),(1e-3,50,32),(1e-3,50,64),(5e-3,50,32),(1e-2,50,32)]:
+    # 5e-4,50,64 = 61 61
         print('-'*32, set_)
         learning_rate, num_epochs, batch_size = set_
         emotion_dataset.change_batch_size(batch_size)
@@ -271,8 +282,8 @@ def train_MIMA(label_type):
 if __name__ == "__main__":
     # import warnings
     # warnings.filterwarnings("error", category=RuntimeWarning) # 모든 RuntimeWarning을 예외로 처리
-    train_emotion()
-    # train_stress()
+    # train_emotion()
+    train_stress()
     # train_MIMA(2)
     # train_MIMA(3)
     # train_MIMA(4)

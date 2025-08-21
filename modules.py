@@ -463,9 +463,9 @@ class MIMA_DataModule():
             # eeg_torch = torch.from_numpy(np.concatenate([self.eeg[i] for i in train_subjects])).float()
             # fnirs_torch = torch.from_numpy(np.concatenate([self.fnirs[i] for i in train_subjects])).float()
             # label_torch = torch.from_numpy(np.concatenate([self.label[i] for i in train_subjects])).long()
-            eeg_torch = torch.from_numpy(np.concatenate([self.eeg[i] for i in train_subjects]+[self.eeg[self.subjects[self.test_idx],0::5]])).float()
-            fnirs_torch = torch.from_numpy(np.concatenate([self.fnirs[i] for i in train_subjects]+[self.fnirs[self.subjects[self.test_idx],0::5]])).float()
-            label_torch = torch.from_numpy(np.concatenate([self.label[i] for i in train_subjects]+[self.label[self.subjects[self.test_idx],0::5]])).long()
+            eeg_torch = torch.from_numpy(np.concatenate([self.eeg[i] for i in train_subjects]+[self.eeg[self.subjects[self.test_idx],0::9]])).float()
+            fnirs_torch = torch.from_numpy(np.concatenate([self.fnirs[i] for i in train_subjects]+[self.fnirs[self.subjects[self.test_idx],0::9]])).float()
+            label_torch = torch.from_numpy(np.concatenate([self.label[i] for i in train_subjects]+[self.label[self.subjects[self.test_idx],0::9]])).long()
             train_loader = self.create_dataloader(eeg_torch, fnirs_torch, label_torch)
 
             self.test_idx += 1

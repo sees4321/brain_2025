@@ -21,13 +21,13 @@ from torchmetrics.classification import BinaryConfusionMatrix, MulticlassF1Score
 
 def leave_one_out_cross_validation(data_mode:int=0, label_type:int=0):
     ManualSeed(0)
-    learning_rate = 1e-3
-    num_batch = 64
+    learning_rate = 1e-4
+    num_batch = 32
     num_epochs = 50
     min_epoch = 50
     start_time = datetime.datetime.now().strftime('%m%d_%H%M')
-    path = 'D:\One_한양대학교\private object minsu\coding\data\EEG_fnirs_cognitive_open'
-    # path = 'D:/KMS/data/brain_2025'
+    # path = 'D:\One_한양대학교\private object minsu\coding\data\EEG_fnirs_cognitive_open'
+    path = 'D:/KMS/data/brain_2025'
     
     
     dataset = MIMA_DataModule(path,
@@ -64,15 +64,15 @@ def leave_one_out_cross_validation(data_mode:int=0, label_type:int=0):
                 num_classes = 1
             model = SyncNet2(dataset.data_shape_eeg, 
                             dataset.data_shape_fnirs, 
-                            num_segments=4,
+                            num_segments=8,
                             embed_dim=128,
                             num_heads=2,
                             num_layers=1,
-                            num_groups=1,
+                            num_groups=2,
                             actv_mode="elu",
                             use_lstm= True,
                             pool_mode="mean", 
-                            k_size=[15, 3],
+                            k_size=[13, 3],
                             hid_dim=[128, 32],
                             num_classes=num_classes).to(DEVICE)
             # config = Config(
@@ -176,16 +176,17 @@ if __name__ == "__main__":
     #     for label_type in [2,3,4]:
     #         print('-'*32 + str(dat_type) + str(label_type))
     #         leave_one_out_cross_validation(dat_type,label_type)
-    dat_type = [0,1,1]
-    for i in range(1):
-        aaa = i
-        for label_type in [2,3]:
-            print('-'*32 + str(i) + str(label_type))
-            leave_one_out_cross_validation(dat_type[i], label_type)
-    for set_ in [(5e-4,100,16),(5e-4,50,32),(5e-4,50,64),(5e-4,50,16),(1e-4,50,32),(1e-4,100,32),(1e-3,50,32),(1e-3,100,32)]:
-        print('-'*32, set_)
-        learning_rate, num_epochs, batch_size = set_
-        leave_one_out_cross_validation(dat_type, 2)
+    leave_one_out_cross_validation(0, 3)
+    # dat_type = [0,1,1]
+    # for i in range(1):
+    #     aaa = i
+    #     for label_type in [2,3]:
+    #         print('-'*32 + str(i) + str(label_type))
+    #         leave_one_out_cross_validation(dat_type[i], label_type)
+    # for set_ in [(5e-4,100,16),(5e-4,50,32),(5e-4,50,64),(5e-4,50,16),(1e-4,50,32),(1e-4,100,32),(1e-3,50,32),(1e-3,100,32)]:
+    #     print('-'*32, set_)
+    #     learning_rate, num_epochs, batch_size = set_
+    #     leave_one_out_cross_validation(dat_type, 2)
     # for i, v in enumerate(['wg','dsr','nback']):
     #     for dat_type in [0,1,2]:
     #         leave_one_out_cross_validation(dat_type,i+2)

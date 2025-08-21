@@ -439,7 +439,7 @@ def train_bin_cls4(model:nn.Module,
             y = y.to(DEVICE)
             optimizer.zero_grad()
             pred = torch.squeeze(model(x))
-            pred = torch.softmax(pred, dim=1)
+            # pred = torch.softmax(pred, dim=1)
             loss = criterion(pred, y)
             loss.backward()
             optimizer.step()
